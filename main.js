@@ -888,7 +888,9 @@ async function handleHabilidadesCategoria(message, catId, chatId) {
     const user = usuarios[authorId];
     
     // (Item 1) Roteamento por Sigla
-    let resolvedCatName = (SIGLA_MAP_HABILIDADES[catId] || catId).replace(/_/g, ' ');
+    let resolvedCatName = (SIGLA_MAP_HABILIDADES[catId] || catId);
+    // Normaliza o resolvedCatName para comparação (remove todos os caracteres especiais)
+    const resolvedCatNameNormalized = resolvedCatName.replace(/[^a-z0-9]/g, '_');
 
     let nomeCat = 'Desconhecida', habs = [];
     if (typeof habilidades === 'object' && habilidades) {
@@ -896,7 +898,9 @@ async function handleHabilidadesCategoria(message, catId, chatId) {
             const h = habilidades[hId];
             if (h.preco === 0) continue;
             const animeName = (h.anime || 'Outros').toLowerCase();
-            if (animeName.replace(/[^a-z0-9]/g, '_') === resolvedCatName || animeName === resolvedCatName) {
+            const animeNameNormalized = animeName.replace(/[^a-z0-9]/g, '_');
+            // Compara as versões normalizadas
+            if (animeNameNormalized === resolvedCatNameNormalized) {
                 nomeCat = h.anime || 'Outros';
                 habs.push(hId);
             }
@@ -1223,8 +1227,10 @@ async function handleUsarHabilidade(message, command, authorId, chatId) {
     const originalHabId = user.habilidades[habIndex];
     const reqT = hab.duracao_seg && hab.msg_anular;
 
-    // (Item 6) Usa DB de timers persistente
+    // (Item 6) Usa DB de timers persistente - com logs de debug
+    console.log(`[SKILL-DEBUG] Skill: ${command}, reqT: ${reqT}, timers[chatId]: ${JSON.stringify(timers[chatId])}`);
     if (reqT && timers[chatId] && command !== 'zawarudo') {
+        console.log(`[SKILL-DEBUG] Timer ativo detectado para ${chatId}, bloqueando skill ${command}`);
         return sock.sendMessage(chatId, { text: 'Timer ativo!' });
     }
     
@@ -1747,21 +1753,8 @@ async function handlePix(m, args, authorId, chatId) {
 }
 
 
-// --- (Item 7) ADM COMMAND ATUALIZADO ---
+// --- COMANDO .add (SEM RESTRIÇÃO) ---
 async function handleAddMoney(m, g, a, chatId) {
-    // Pega o JID real do participante da mensagem (não normalizado)
-    const rawAuthorJid = m.key.participant || m.key.remoteJid;
-    // Extrai o número do telefone do JID real
-    const authorNumber = rawAuthorJid.split('@')[0];
-    const ownerNumber = '5528981124442'; // Número do dono
-    
-    if (authorNumber !== ownerNumber) {
-        console.log(`[DEBUG] Comando .add negado para ${authorNumber} (Não é o dono ${ownerNumber})`);
-        return; // Ignora silenciosamente se não for o dono
-    }
-    
-    console.log(`[DEBUG] Comando .add autorizado para o dono ${ownerNumber}`);
-
     let targetId = a; // Default: a si mesmo
     let amountStr = g[0];
     

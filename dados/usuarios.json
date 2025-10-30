@@ -1,10 +1,10 @@
 {
   "104127791141069@lid": {
     "nome": "cokis",
-    "ouro": 760,
+    "ouro": 22359,
     "bank": 0,
-    "cla": "Raça Quincy",
-    "cla_id": "quincy",
+    "cla": "Clã Beyond",
+    "cla_id": "beyond",
     "passivos": [
       {
         "id": "itoshirin_gol",
@@ -12,8 +12,8 @@
       }
     ],
     "habilidades": [
-      "blut_vene",
-      "bola_de_ki"
+      "bola_de_ki",
+      "olhos_shinigami"
     ],
     "cooldowns": {
       "work": 1761824367583,
@@ -25,8 +25,22 @@
       "explore": 1761823713669,
       "crime": 1761823835341,
       "hunt": 1761823789023,
-      "nick": 1761909669626
+      "nick": 1761909669626,
+      "buy_expensive_skill": 1761914890909,
+      "olhos_shinigami": 1761829756307
     },
+    "job": null,
+    "lastKnownChatId": "120363424011427719@g.us"
+  },
+  "63256798474337@lid": {
+    "nome": "atena",
+    "ouro": 100,
+    "bank": 0,
+    "cla": "Raça Quincy",
+    "cla_id": "quincy",
+    "passivos": [],
+    "habilidades": [],
+    "cooldowns": {},
     "job": null,
     "lastKnownChatId": "120363424011427719@g.us"
   }

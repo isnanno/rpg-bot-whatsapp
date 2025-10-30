@@ -253,14 +253,14 @@
       "nome_categoria": "JoJo's Bizarre Adventure - Investimentos Bizarros",
       "sigla": "jojo",
       "itens": {
-        "zawarudo": {
-          "nome": "Za Warudo (DIO)",
-          "descricao": "O MUNDO! DIO para o tempo e rouba tesouros valiosos.",
-          "preco": 25000,
-          "renda": 8000,
-          "cooldown_min": 360,
-          "gif_id": "zawarudo",
-          "mensagem_ganho": "⏰ {nome}, ZA WARUDO! TOKI WO TOMARE! DIO congelou o tempo e coletou +{renda} Ouro!"
+        "jotaro_pesquisa": {
+          "nome": "Expedição Marinha (Jotaro)",
+          "descricao": "Jotaro lidera uma expedição marinha e descobre um tesouro submerso.",
+          "preco": 22000,
+          "renda": 7000,
+          "cooldown_min": 340,
+          "gif_id": "menu",
+          "mensagem_ganho": "🌊 {nome}, Jotaro Kujo explorou as profundezas do oceano! A expedição rendeu +{renda} Ouro!"
         }
       }
     }
