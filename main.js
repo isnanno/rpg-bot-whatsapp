@@ -345,17 +345,20 @@ async function connectToWhatsApp() {
                 case 'menu': await handleMenu(message, authorId, chatId); break;
                 // Loja (Item 7 - .comprarhabilidade removido)
                 case 'loja':
-                // (Item 1) Pega o ID/Sigla da loja (ex: .loja aot)
+                // (Item 1) Pega o ID/Sigla da loja (ex: .loja aot ou .loja jjk)
                 const lojaId = (args[0] || '').toLowerCase();
-                if (!lojaId)
-                    return sock.sendMessage(chatId, { text: 'Especifique a loja. Ex: *.loja cdz* ou *.loja cavaleiros_do_zodiaco*' });
+                if (!lojaId) {
+                    // Se não houver argumentos, mostra o menu de categorias
+                    await handleLoja(message, chatId);
+                    break;
+                }
                 
-                // --- CORREÇÃO DE SIGLA ---
-                // Procura por ID (cavaleiros_do_zodiaco) OU Sigla (cdz)
-                const lojaDef = lojas.find(l => l.id === lojaId || l.sigla === lojaId);
-
-                if (lojaDef) {
-                    await handleLoja(message, authorId, chatId, lojaDef);
+                // Resolve sigla para ID canônico (ex: jjk -> jujutsu_kaisen)
+                const resolvedLojaId = SIGLA_MAP_LOJA[lojaId] || lojaId;
+                
+                // Verifica se a categoria existe
+                if (loja.categorias && loja.categorias[resolvedLojaId]) {
+                    await handleLojaCategoria(message, resolvedLojaId, chatId);
                 } else {
                     return sock.sendMessage(chatId, { text: `Loja *${lojaId}* não encontrada.` });
                 }
@@ -363,19 +366,49 @@ async function connectToWhatsApp() {
                 case 'comprar': await handleComprar(message, args, authorId, chatId); break;
                 // Habilidades
                 case 'habilidades':
-                // (Item 5) Pega o ID/Sigla do clã (ex: .habilidades gojo)
-                const claId = (args[0] || '').toLowerCase();
-                if (!claId)
-                    return sock.sendMessage(chatId, { text: 'Especifique o clã. Ex: *.habilidades gojo*' });
+                // (Item 5) Pega o ID/Sigla (ex: .habilidades jjk ou .habilidades gojo)
+                const habArg = (args[0] || '').toLowerCase();
+                if (!habArg) {
+                    // Se não houver argumentos, mostra o menu de categorias de animes
+                    await handleHabilidades(message, chatId);
+                    break;
+                }
                 
-                // --- CORREÇÃO DE SIGLA ---
-                // Procura por ID (gojo) OU Sigla (gojo)
-                const claDef = clas.find(c => c.id === claId || c.sigla === claId);
+                // Primeiro tenta resolver como sigla de anime
+                const resolvedAnimeName = SIGLA_MAP_HABILIDADES[habArg];
                 
-                if (claDef) {
-                    await handleHabilidadesCla(message, authorId, chatId, claDef);
+                if (resolvedAnimeName) {
+                    // É uma sigla válida de anime (ex: jjk -> jujutsu_kaisen)
+                    // Passa o nome canônico normalizado, não a sigla
+                    await handleHabilidadesCategoria(message, resolvedAnimeName.replace(/ /g, '_'), chatId);
                 } else {
-                    return sock.sendMessage(chatId, { text: `Clã *${claId}* não encontrado.` });
+                    // Pode ser um nome de anime normalizado ou um clã
+                    // Verifica se tem habilidades deste anime
+                    let hasSkills = false;
+                    if (typeof habilidades === 'object' && habilidades) {
+                        for (const hId in habilidades) {
+                            const h = habilidades[hId];
+                            if (h.preco === 0) continue;
+                            const animeName = (h.anime || '').toLowerCase();
+                            if (animeName.replace(/[^a-z0-9]/g, '_') === habArg || animeName === habArg) {
+                                hasSkills = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (hasSkills) {
+                        // É um nome de anime válido
+                        await handleHabilidadesCategoria(message, habArg, chatId);
+                    } else {
+                        // Tenta como clã
+                        const claDef = clas.find(c => c.id === habArg || c.sigla === habArg);
+                        if (claDef) {
+                            await handleHabilidadesCla(message, authorId, chatId, claDef);
+                        } else {
+                            return sock.sendMessage(chatId, { text: `Categoria/Clã *${habArg}* não encontrado.` });
+                        }
+                    }
                 }
                 break;
                 // case 'comprarhabilidade': // REMOVIDO (Item 7)
@@ -467,6 +500,17 @@ const ANIME_SIGLAS = {
 const SIGLA_MAP_HABILIDADES = Object.fromEntries(
     Object.entries(ANIME_SIGLAS).map(([k, v]) => [v, k.toLowerCase().replace(/[^a-z0-9]/g, '_')])
 );
+
+// Siglas para as lojas (categorias)
+const SIGLA_MAP_LOJA = {
+    'jjk': 'jujutsu_kaisen',
+    'op': 'one_piece',
+    'aot': 'attack_on_titan',
+    'dbz': 'dragon_ball',
+    'ds': 'demon_slayer',
+    'bl': 'blue_lock',
+    'naruto': 'naruto'
+};
 
 /**
  * Retorna a data atual no fuso-horário de Brasília (America/Sao_Paulo)

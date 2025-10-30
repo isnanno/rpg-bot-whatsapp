@@ -1,0 +1,33 @@
+{
+  "104127791141069@lid": {
+    "nome": "cokis",
+    "ouro": 560,
+    "bank": 0,
+    "cla": "Raça Quincy",
+    "cla_id": "quincy",
+    "passivos": [
+      {
+        "id": "itoshirin_gol",
+        "nome": "Contrato (Itoshi Rin)"
+      }
+    ],
+    "habilidades": [
+      "blut_vene",
+      "bola_de_ki"
+    ],
+    "cooldowns": {
+      "work": 1761824367583,
+      "diario": "2025-10-30",
+      "mine": 1761824249240,
+      "fish": 1761824315601,
+      "forjar": 1761823588576,
+      "fazerbolo": 1761823591616,
+      "explore": 1761823713669,
+      "crime": 1761823835341,
+      "hunt": 1761823789023,
+      "nick": 1761909669626
+    },
+    "job": null,
+    "lastKnownChatId": "120363424011427719@g.us"
+  }
+}
