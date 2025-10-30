@@ -227,6 +227,52 @@ async function connectToWhatsApp() {
             // (Item 7) Verifica/Define o desconto diário no boot
             await checkDailyDiscount(true); // true = forçar verificação no boot
 
+            // Verificação de Mídias Faltantes
+            console.log('\n========== VERIFICAÇÃO DE MÍDIAS ==========');
+            const missingMedias = [];
+            
+            // Verifica habilidades
+            if (typeof habilidades === 'object' && habilidades) {
+                for (const habId in habilidades) {
+                    const hab = habilidades[habId];
+                    if (hab.gif_id) {
+                        const mp4Path = path.join(MIDIAS_DIR, hab.gif_id + '.mp4');
+                        const gifPath = path.join(MIDIAS_DIR, hab.gif_id + '.gif');
+                        if (!existsSync(mp4Path) && !existsSync(gifPath)) {
+                            missingMedias.push(hab.gif_id + ' (habilidade: ' + habId + ')');
+                        }
+                    }
+                }
+            }
+            
+            // Verifica itens da loja
+            if (loja.categorias) {
+                for (const catId in loja.categorias) {
+                    const cat = loja.categorias[catId];
+                    if (cat.itens) {
+                        for (const itemId in cat.itens) {
+                            const item = cat.itens[itemId];
+                            if (item.gif_id) {
+                                const mp4Path = path.join(MIDIAS_DIR, item.gif_id + '.mp4');
+                                const gifPath = path.join(MIDIAS_DIR, item.gif_id + '.gif');
+                                if (!existsSync(mp4Path) && !existsSync(gifPath)) {
+                                    missingMedias.push(item.gif_id + ' (loja: ' + catId + '/' + itemId + ')');
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (missingMedias.length > 0) {
+                console.log('⚠️  MÍDIAS FALTANTES:');
+                missingMedias.forEach(m => console.log('   - ' + m));
+                console.log('Total de mídias faltantes: ' + missingMedias.length);
+            } else {
+                console.log('✅ Todas as mídias foram encontradas!');
+            }
+            console.log('===========================================\n');
+
             // Inicia Loops
             console.log('Iniciando loop renda (Poll: ' + (RENDA_LOOP_INTERVAL/1000) + 's)...');
             setInterval(() => passiveIncomeLoop(sock), RENDA_LOOP_INTERVAL); // Passa sock
@@ -236,7 +282,7 @@ async function connectToWhatsApp() {
             
             console.log('Iniciando loop clãs (Poll: ' + (CLAN_LOOP_INTERVAL/1000) + 's)...');
             setInterval(() => clanCooldownLoop(sock), CLAN_LOOP_INTERVAL); // (Item 5) Passa sock
-			
+                        
         }
 
         if (connection === 'close') {
@@ -1448,7 +1494,7 @@ async function handleZawarudo(message, authorId, chatId, originalHabId) {
 }
 
 async function handleSkillArea(message, authorId, chatId, originalHabId, hab, command) {
-	
+        
     // ... (Função handleSkillArea original - adaptada para helper de mídia e timers.json) ...
     const user = usuarios[authorId];
     const authorNumber = authorId.split('@')[0];
@@ -1703,11 +1749,18 @@ async function handlePix(m, args, authorId, chatId) {
 
 // --- (Item 7) ADM COMMAND ATUALIZADO ---
 async function handleAddMoney(m, g, a, chatId) {
-    const authorJid = denormalizeJid(a);
-    if (authorJid !== BOT_OWNER_JID) {
-        console.log(`[DEBUG] Comando .add negado para ${a} (Não é o dono ${BOT_OWNER_JID})`);
+    // Pega o JID real do participante da mensagem (não normalizado)
+    const rawAuthorJid = m.key.participant || m.key.remoteJid;
+    // Extrai o número do telefone do JID real
+    const authorNumber = rawAuthorJid.split('@')[0];
+    const ownerNumber = '5528981124442'; // Número do dono
+    
+    if (authorNumber !== ownerNumber) {
+        console.log(`[DEBUG] Comando .add negado para ${authorNumber} (Não é o dono ${ownerNumber})`);
         return; // Ignora silenciosamente se não for o dono
     }
+    
+    console.log(`[DEBUG] Comando .add autorizado para o dono ${ownerNumber}`);
 
     let targetId = a; // Default: a si mesmo
     let amountStr = g[0];

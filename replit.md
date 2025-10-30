@@ -8,6 +8,15 @@ This is a WhatsApp RPG bot (version 4.0) built with Node.js using the Baileys li
 - **Language**: Node.js
 - **Main Library**: @whiskeysockets/baileys v7.0.0-rc.6
 - **Bot Version**: 4.0
+- **Environment**: Replit (configured and ready to run)
+
+## Running on Replit
+The bot is already configured to run automatically in Replit:
+1. The workflow "WhatsApp RPG Bot" will start automatically when you open the Repl
+2. Check the Console output to see the QR code for WhatsApp authentication
+3. On first run, scan the QR code with WhatsApp (Settings → Linked Devices → Link a Device)
+4. The session will be saved and the bot will auto-login on subsequent runs
+5. The bot will maintain connection and auto-reconnect if disconnected (up to 5 attempts with exponential backoff)
 
 ## Project Structure
 ```
@@ -85,12 +94,17 @@ On first run, the bot will:
 - Improved JID normalization for database compatibility
 - Added `.renda` toggle for passive income notifications
 
-### Bug Fixes (October 30, 2025)
+### Bug Fixes (October 30, 2025 - Morning)
 - **Fixed Clan Skills**: `.olhos_shinigami` and `.mangekyou_inicial` now properly use cooldowns instead of being consumed (added `is_clan_skill: true` and `cooldown_sec` to habilidades.json)
 - **Fixed Store Abbreviations**: `.loja` command now supports siglas (e.g., `.loja jjk` works the same as `.loja jujutsu_kaisen`)
 - **Fixed Skill Abbreviations**: `.habilidades` command now supports anime siglas (e.g., `.habilidades jjk`, `.habilidades jojo` work correctly)
 - **Fixed Menu Display**: Both `.loja` and `.habilidades` now show category menus when used without arguments
 - **Cleaned Menu**: Removed Commerce/Profile section from `.menugold` menu
+
+### Recent Updates (October 30, 2025 - Afternoon)
+- **Fixed Admin Command**: `.add` command now verifies owner by phone number (5528981124442) directly instead of full JID, making it 100% reliable
+- **Added JoJo Shop**: New shop category "JoJo's Bizarre Adventure" with Za Warudo item (25,000 gold, 8,000 passive income every 6 hours)
+- **Media Verification**: Bot now checks for missing media files on startup and lists them in console for easy identification
 
 ## Development Notes
 - All user data stored with normalized JIDs (@c.us format in DB)

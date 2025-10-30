@@ -248,6 +248,21 @@
           "mensagem_ganho": "🏆 {nome}, O campeão Mr. Satan fez uma aparição pública! Os fãs doaram +{renda} Ouro."
         }
       }
+    },
+    "jojo": {
+      "nome_categoria": "JoJo's Bizarre Adventure - Investimentos Bizarros",
+      "sigla": "jojo",
+      "itens": {
+        "zawarudo": {
+          "nome": "Za Warudo (DIO)",
+          "descricao": "O MUNDO! DIO para o tempo e rouba tesouros valiosos.",
+          "preco": 25000,
+          "renda": 8000,
+          "cooldown_min": 360,
+          "gif_id": "zawarudo",
+          "mensagem_ganho": "⏰ {nome}, ZA WARUDO! TOKI WO TOMARE! DIO congelou o tempo e coletou +{renda} Ouro!"
+        }
+      }
     }
   }
 }
