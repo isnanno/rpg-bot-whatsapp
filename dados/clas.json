@@ -1,0 +1,142 @@
+[
+  {
+    "id": "uchiha",
+    "nome": "Clã Uchiha",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "mangekyou_inicial",
+      "description": "Começa com 'Mangekyou Inicial' (Rouba 10% do ouro, 30 min cooldown)."
+    },
+    "chance": 8
+  },
+  {
+    "id": "uzumaki",
+    "nome": "Clã Uzumaki",
+    "buff": {
+      "type": "passive_income_boost",
+      "multiplier": 1.10,
+      "description": "Sua renda passiva (.loja) gera 10% a mais de Ouro."
+    },
+    "chance": 12
+  },
+  {
+    "id": "hyuga",
+    "nome": "Clã Hyuga",
+    "buff": {
+      "type": "passive_defense",
+      "chance": 0.15,
+      "description": "Tem 15% de chance de anular passivamente um roubo de Ouro direcionado a você (Byakugan)."
+    },
+    "chance": 14
+  },
+  {
+    "id": "senju",
+    "nome": "Clã Senju",
+    "buff": {
+      "type": "cooldown_reduction",
+      "multiplier": 0.75,
+      "description": "Cooldowns dos itens de renda passiva (.loja) são 25% mais rápidos."
+    },
+    "chance": 8
+  },
+  {
+    "id": "sarutobi",
+    "nome": "Clã Sarutobi",
+    "buff": {
+      "type": "activity_bonus",
+      "multiplier": 1.10,
+      "description": "Ganha 10% a mais de Ouro em atividades manuais (.trabalhar, .minerar, .pescar, .crime)."
+    },
+    "chance": 10
+  },
+  {
+    "id": "quincy",
+    "nome": "Raça Quincy",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "blut_vene",
+      "description": "Começa com 'Blut Vene' (Anula completamente o PRÓXIMO ataque, 1 uso)."
+    },
+    "chance": 7
+  },
+  {
+    "id": "beyond",
+    "nome": "Clã Beyond",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "olhos_shinigami",
+      "description": "Começa com 'Olhos de Shinigami' (Revela saldo do alvo, 15 min cooldown)."
+    },
+    "chance": 7
+  },
+  {
+    "id": "shinigami",
+    "nome": "Raça Shinigami",
+    "buff": {
+      "type": "gold_start",
+      "amount": 250,
+      "description": "Começa com 250 Ouro extra e 50% de desconto em habilidades de Bleach."
+    },
+    "chance": 13
+  },
+  {
+    "id": "saiyajin",
+    "nome": "Raça Saiyajin",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "instinto_superior",
+      "description": "Começa com 'Instinto Superior' (Reflete o PRÓXIMO ataque @marcado. Cooldown 4h)."
+    },
+    "chance": 3
+  },
+  {
+    "id": "demonio",
+    "nome": "Raça Demônio (Oni)",
+    "buff": {
+      "type": "crime_boost",
+      "multiplier": 1.5,
+      "description": "A atividade .crime tem 100% de sucesso e rende 50% a mais de Ouro."
+    },
+    "chance": 7
+  },
+  {
+    "id": "cacador",
+    "nome": "Caçador de Oni",
+    "buff": {
+      "type": "activity_bonus",
+      "multiplier": 1.12,
+      "description": "Ganha 12% a mais de Ouro em atividades manuais (.trabalhar, .minerar, .pescar)."
+    },
+    "chance": 10
+  },
+  {
+    "id": "comum",
+    "nome": "Humano Comum",
+    "buff": {
+      "type": "gold_start",
+      "amount": 150,
+      "description": "Começa com 150 Ouro (Um cidadão normal)."
+    },
+    "chance": 18
+  },
+  {
+    "id": "gojo",
+    "nome": "Clã Gojo",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "mugen",
+      "description": "Começa com 'Mugen' (Anula 1 ataque. Recarrega a cada 2h) e tem 50% de desconto em itens JJK."
+    },
+    "chance": 1
+  },
+  {
+    "id": "tsugikuni",
+    "nome": "Clã Tsugikuni",
+    "buff": {
+      "type": "forjar_boost",
+      "multiplier": 3.0,
+      "description": "O comando .forjar SEMPRE acerta, ganha 300% (x3) no .forjar e +50% em rendas de Demon Slayer."
+    },
+    "chance": 5
+  }
+]

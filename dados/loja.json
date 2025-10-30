@@ -1,0 +1,253 @@
+{
+  "categorias": {
+    "blue_lock": {
+      "nome_categoria": "Blue Lock - Contratos de Patrocínio",
+      "sigla": "bl",
+      "itens": {
+        "itoshirin_gol": {
+          "nome": "Contrato (Itoshi Rin)",
+          "descricao": "Receba um bônus por cada gol 'lógico' de Rin.",
+          "preco": 1000,
+          "renda": 200,
+          "cooldown_min": 15,
+          "gif_id": "itoshirin_gol",
+          "mensagem_ganho": "⚽ {nome}, Itoshi Rin marcou um gol perfeito! Seu contrato de patrocínio rendeu +{renda} Ouro."
+        },
+        "bachira_drible": {
+          "nome": "Showtime (Meguru Bachira)",
+          "descricao": "O 'monstro' de Bachira atrai multidões e patrocinadores.",
+          "preco": 1800,
+          "renda": 360,
+          "cooldown_min": 22,
+          "gif_id": "bachira_drible",
+          "mensagem_ganho": "👹 {nome}, Meguru Bachira deu um show em campo! O 'monstro' atraiu +{renda} Ouro em patrocínio."
+        },
+        "isagi_adapt": {
+          "nome": "Visão (Yoichi Isagi)",
+          "descricao": "Isagi analisa o campo e acha uma 'fórmula' de ganhar dinheiro.",
+          "preco": 3500,
+          "renda": 600,
+          "cooldown_min": 30,
+          "gif_id": "isagi_adapt",
+          "mensagem_ganho": "🧩 {nome}, Isagi encontrou a peça que faltava! Sua visão de jogo rendeu +{renda} Ouro."
+        },
+        "nagi_trap": {
+          "nome": "Domínio (Seishiro Nagi)",
+          "descricao": "A genialidade de Nagi atrai olheiros e investimentos.",
+          "preco": 4200,
+          "renda": 720,
+          "cooldown_min": 35,
+          "gif_id": "nagi_trap",
+          "mensagem_ganho": "🎮 {nome}, Nagi dominou a bola (e o mercado)! Seu talento rendeu +{renda} Ouro."
+        }
+      }
+    },
+    "one_piece": {
+      "nome_categoria": "One Piece - Caçadores de Recompensa",
+      "sigla": "op",
+      "itens": {
+        "nami_mapa": {
+          "nome": "Navegação (Nami)",
+          "descricao": "Nami decifra um mapa do tesouro antigo e encontra uma pequena fortuna.",
+          "preco": 3000,
+          "renda": 1000,
+          "cooldown_min": 60,
+          "gif_id": "nami_mapa",
+          "mensagem_ganho": "🗺️ {nome}, Nami encontrou um tesouro escondido! Você ganhou +{renda} Ouro."
+        },
+        "zoro_caminho": {
+          "nome": "Caçada (Roronoa Zoro)",
+          "descricao": "Zoro se perde e acidentalmente derrota um pirata procurado.",
+          "preco": 2500,
+          "renda": 800,
+          "cooldown_min": 45,
+          "gif_id": "zoro_caminho",
+          "mensagem_ganho": "🧭 {nome}, Zoro se perdeu e acabou capturando um pirata! A recompensa de +{renda} Ouro é sua."
+        },
+        "luffy_tesouro": {
+          "nome": "Sorte do Rei (Monkey D. Luffy)",
+          "descricao": "Luffy encontra um baú de tesouro enquanto procura comida.",
+          "preco": 15000,
+          "renda": 4000,
+          "cooldown_min": 240,
+          "gif_id": "luffy_tesouro",
+          "mensagem_ganho": "🍖 {nome}, Luffy achou o One Piece! (Brincadeira, mas ele achou um baú com +{renda} Ouro)."
+        },
+        "sanji_cozinha": {
+          "nome": "Banquete (Sanji)",
+          "descricao": "Sanji prepara um banquete que impressiona um nobre rico.",
+          "preco": 3800,
+          "renda": 1200,
+          "cooldown_min": 75,
+          "gif_id": "sanji_cozinha",
+          "mensagem_ganho": "🍳 {nome}, Sanji cozinhou para a realeza! A gorjeta generosa foi de +{renda} Ouro."
+        }
+      }
+    },
+    "jujutsu_kaisen": {
+      "nome_categoria": "Jujutsu Kaisen - Missões da Escola",
+      "sigla": "jjk",
+      "itens": {
+        "gojo_exorcismo": {
+          "nome": "Missão Especial (Gojo Satoru)",
+          "descricao": "Gojo exorciza uma maldição de nível especial (e fica com o bônus).",
+          "preco": 10000,
+          "renda": 3200,
+          "cooldown_min": 180,
+          "gif_id": "gojo_exorcismo",
+          "mensagem_ganho": "🟣 {nome}, Gojo Satoru completou uma missão especial em segundos. A comissão pagou +{renda} Ouro."
+        },
+        "inumaki_ordem": {
+          "nome": "Feitiçaria Inata (Toge Inumaki)",
+          "descricao": "Inumaki usa sua 'Fala Amaldiçoada' para convencer alguém a te dar dinheiro.",
+          "preco": 1500,
+          "renda": 280,
+          "cooldown_min": 15,
+          "gif_id": "inumaki_ordem",
+          "mensagem_ganho": "🗣️ {nome}, Toge Inumaki disse: 'Doe'. Alguém obedeceu. Você recebeu +{renda} Ouro."
+        },
+        "meimei_corvos": {
+          "nome": "Contrato (Mei Mei)",
+          "descricao": "Mei Mei negocia um contrato lucrativo em seu nome.",
+          "preco": 5000,
+          "renda": 1600,
+          "cooldown_min": 90,
+          "gif_id": "meimei_corvos",
+          "mensagem_ganho": "💸 {nome}, O valor é tudo. Mei Mei fechou um contrato e sua comissão foi de +{renda} Ouro."
+        },
+        "sukuna_dedo": {
+          "nome": "Fragmento (Ryomen Sukuna)",
+          "descricao": "Você encontra e vende um dedo amaldiçoado no mercado negro.",
+          "preco": 20000,
+          "renda": 6000,
+          "cooldown_min": 300,
+          "gif_id": "sukuna_dedo",
+          "mensagem_ganho": "🩸 {nome}, Um colecionador pagou caro pelo fragmento de Sukuna! Você recebeu +{renda} Ouro."
+        }
+      }
+    },
+    "naruto": {
+      "nome_categoria": "Naruto - Missões Ninja",
+      "sigla": "naruto",
+      "itens": {
+        "kakashi_missao": {
+          "nome": "Missão Rank-A (Kakashi)",
+          "descricao": "Kakashi completa uma missão de escolta perigosa.",
+          "preco": 4000,
+          "renda": 1200,
+          "cooldown_min": 90,
+          "gif_id": "kakashi_missao",
+          "mensagem_ganho": "⚡ {nome}, Kakashi completou a missão Rank-A enquanto lia seu livro. Recompensa: +{renda} Ouro."
+        },
+        "naruto_lamen": {
+          "nome": "Aposta do Lamen (Naruto)",
+          "descricao": "Naruto aposta quem come mais lámen e ganha.",
+          "preco": 500,
+          "renda": 120,
+          "cooldown_min": 10,
+          "gif_id": "naruto_lamen",
+          "mensagem_ganho": "🍜 {nome}, Naruto ganhou uma aposta no Ichiraku! Você fica com parte dos ganhos: +{renda} Ouro."
+        },
+        "jiraiya_pesquisa": {
+          "nome": "Pesquisa (Jiraiya)",
+          "descricao": "Jiraiya 'pesquisa' fontes termais e vende informações.",
+          "preco": 2800,
+          "renda": 880,
+          "cooldown_min": 50,
+          "gif_id": "jiraiya_pesquisa",
+          "mensagem_ganho": "🐸 {nome}, A 'pesquisa' de Jiraiya rendeu frutos! Você ganhou +{renda} Ouro com as vendas."
+        }
+      }
+    },
+    "attack_on_titan": {
+      "nome_categoria": "Attack on Titan - Recursos da Tropa",
+      "sigla": "aot",
+      "itens": {
+        "levi_limpeza": {
+          "nome": "Faxina (Levi Ackerman)",
+          "descricao": "Levi cobra uma taxa alta para organizar os arquivos (e limpar tudo).",
+          "preco": 7000,
+          "renda": 2000,
+          "cooldown_min": 120,
+          "gif_id": "levi_limpeza",
+          "mensagem_ganho": "🧹 {nome}, Levi inspecionou seus cofres. A 'taxa de limpeza' resultou em +{renda} Ouro."
+        },
+        "hange_pesquisa": {
+          "nome": "Pesquisa (Hange Zoë)",
+          "descricao": "Hange vende uma de suas patentes de pesquisa de titãs.",
+          "preco": 4500,
+          "renda": 1400,
+          "cooldown_min": 75,
+          "gif_id": "hange_pesquisa",
+          "mensagem_ganho": "🔬 {nome}, Hange vendeu uma nova invenção! O lucro da pesquisa foi de +{renda} Ouro."
+        }
+      }
+    },
+    "demon_slayer": {
+      "nome_categoria": "Demon Slayer - Recompensas da Caça",
+      "sigla": "ds",
+      "itens": {
+        "tanjiro_missao": {
+          "nome": "Missão (Tanjiro Kamado)",
+          "descricao": "Tanjiro completa uma missão e divide a recompensa.",
+          "preco": 1200,
+          "renda": 240,
+          "cooldown_min": 17,
+          "gif_id": "tanjiro_missao",
+          "mensagem_ganho": "☀️ {nome}, Tanjiro concluiu a missão! Sua parte da recompensa é +{renda} Ouro."
+        },
+        "zenitsu_soneca": {
+          "nome": "Proteção Inconsciente (Zenitsu)",
+          "descricao": "Zenitsu derrota um Oni enquanto dorme e pega a recompensa.",
+          "preco": 2000,
+          "renda": 440,
+          "cooldown_min": 25,
+          "gif_id": "zenitsu_soneca",
+          "mensagem_ganho": "⚡ {nome}, Zenitsu agiu dormindo de novo! A recompensa pelo Oni derrotado é sua: +{renda} Ouro."
+        },
+        "inosuke_besta": {
+          "nome": "Caça Selvagem (Inosuke)",
+          "descricao": "Inosuke caça um animal raro e vende a pele.",
+          "preco": 1600,
+          "renda": 320,
+          "cooldown_min": 20,
+          "gif_id": "inosuke_besta",
+          "mensagem_ganho": "🐗 {nome}, INOSUKE-SAMA CAÇOU! A venda da presa rendeu +{renda} Ouro!"
+        }
+      }
+    },
+    "dragon_ball": {
+      "nome_categoria": "Dragon Ball - Recompensas do Torneio",
+      "sigla": "dbz",
+      "itens": {
+        "goku_genkidama": {
+          "nome": "Doações (Goku)",
+          "descricao": "Pessoas doam energia (e dinheiro) para a Genki Dama.",
+          "preco": 8000,
+          "renda": 2600,
+          "cooldown_min": 150,
+          "gif_id": "goku_genkidama",
+          "mensagem_ganho": "🙌 {nome}, A energia (e o dinheiro) do universo se reuniram! Você recebeu +{renda} Ouro."
+        },
+        "vegeta_treino": {
+          "nome": "Patrocínio (Vegeta)",
+          "descricao": "Vegeta consegue um patrocínio da Capsule Corp. para seu treino.",
+          "preco": 6000,
+          "renda": 1800,
+          "cooldown_min": 100,
+          "gif_id": "vegeta_treino",
+          "mensagem_ganho": "👑 {nome}, O Príncipe Saiyajin conseguiu fundos para treinar! Você recebeu +{renda} Ouro da Capsule Corp."
+        },
+        "mr_satan_fama": {
+          "nome": "Fama (Mr. Satan)",
+          "descricao": "Mr. Satan ganha dinheiro com sua fama de 'salvador do mundo'.",
+          "preco": 500,
+          "renda": 100,
+          "cooldown_min": 7,
+          "gif_id": "mr_satan_fama",
+          "mensagem_ganho": "🏆 {nome}, O campeão Mr. Satan fez uma aparição pública! Os fãs doaram +{renda} Ouro."
+        }
+      }
+    }
+  }
+}
