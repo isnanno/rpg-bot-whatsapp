@@ -90,6 +90,97 @@ function denormalizeJid(jid) {
 console.log('[DEBUG] Funções JID (normalize/denormalize) definidas.');
 // --- Fim Funções JID ---
 
+// --- TRATAMENTO DE ERROS DE RATE LIMIT (v4.1) ---
+let rateLimitQueue = [];
+let isRateLimited = false;
+let rateLimitEndTime = 0;
+
+async function safeSendMessage(sock, jid, content, options = {}) {
+    const maxRetries = 3;
+    let lastError = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            if (isRateLimited) {
+                const waitTime = rateLimitEndTime - Date.now();
+                if (waitTime > 0) {
+                    console.warn(`[RATE-LIMIT] Aguardando ${Math.ceil(waitTime / 1000)}s antes de enviar mensagem...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+                isRateLimited = false;
+            }
+            
+            return await sock.sendMessage(jid, content, options);
+        } catch (error) {
+            lastError = error;
+            const errorData = error?.data || error?.output?.statusCode;
+            
+            if (errorData === 429 || error?.message?.includes('rate-overlimit')) {
+                const backoffTime = Math.min(30000 * Math.pow(2, attempt), 120000);
+                console.error(`[RATE-LIMIT] WhatsApp rate limit atingido! Aguardando ${backoffTime / 1000}s... (Tentativa ${attempt + 1}/${maxRetries})`);
+                
+                isRateLimited = true;
+                rateLimitEndTime = Date.now() + backoffTime;
+                
+                await new Promise(resolve => setTimeout(resolve, backoffTime));
+                continue;
+            } else if (error?.message?.includes('Connection Closed') || error?.message?.includes('Stream Errored')) {
+                console.error(`[SEND-ERROR] Conexão perdida ao enviar mensagem. Descartando...`);
+                return null;
+            } else {
+                console.error(`[SEND-ERROR] Erro ao enviar mensagem (tentativa ${attempt + 1}/${maxRetries}):`, error?.message || error);
+                if (attempt < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+                }
+            }
+        }
+    }
+    
+    console.error('[SEND-ERROR] Falha ao enviar mensagem após todas as tentativas. Descartando mensagem.');
+    return null;
+}
+
+async function safeGroupMetadata(sock, jid) {
+    try {
+        return await sock.groupMetadata(jid);
+    } catch (error) {
+        const errorData = error?.data || error?.output?.statusCode;
+        if (errorData === 429 || error?.message?.includes('rate-overlimit')) {
+            console.warn(`[RATE-LIMIT] Rate limit ao buscar metadata do grupo. Retornando null.`);
+        } else {
+            console.error(`[METADATA-ERROR] Erro ao buscar metadata do grupo:`, error?.message || error);
+        }
+        return null;
+    }
+}
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[UNHANDLED-REJECTION] Erro não tratado capturado:', reason);
+    if (reason?.message?.includes('rate-overlimit') || reason?.data === 429) {
+        console.error('[UNHANDLED-REJECTION] Rate limit detectado. O bot continuará funcionando...');
+        isRateLimited = true;
+        rateLimitEndTime = Date.now() + 60000;
+    }
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('[UNCAUGHT-EXCEPTION] Exceção não tratada:', error);
+    if (error?.message?.includes('rate-overlimit') || error?.data === 429) {
+        console.error('[UNCAUGHT-EXCEPTION] Rate limit detectado. O bot continuará funcionando...');
+        isRateLimited = true;
+        rateLimitEndTime = Date.now() + 60000;
+    } else {
+        console.error('[UNCAUGHT-EXCEPTION] Erro crítico. Reiniciando em 5s...');
+        setTimeout(() => {
+            console.log('[RESTART] Tentando reconectar...');
+            connectToWhatsApp().catch(err => console.error('[RESTART-ERROR]', err));
+        }, 5000);
+    }
+});
+
+console.log('[DEBUG] Sistema de proteção contra rate-limit inicializado.');
+// --- Fim Tratamento de Rate Limit ---
+
 // --- Funções DB (com logs) - OTIMIZADO PARA ASYNC ---
 async function loadDB(filePath) {
     // ... (Função loadDB original - inalterada)
@@ -316,7 +407,7 @@ async function connectToWhatsApp() {
         const chatId = message.key.remoteJid;
         if (!chatId || !chatId.endsWith('@g.us')) {
             // Só grupos
-            return sock.sendMessage(chatId, { text: 'Só grupos.' });
+            return safeSendMessage(sock, chatId, { text: 'Só grupos.' });
         }
 
         const rawAuthorId = message.key.participant || message.key.remoteJid;
@@ -337,7 +428,7 @@ async function connectToWhatsApp() {
                 // Alvo anulou (Habilidade de Alvo Único)
                 const tNum = getNum(activeTimer.targetId);
                 const aNum = getNum(activeTimer.attackerId);
-                await sock.sendMessage(chatId, {
+                await safeSendMessage(sock, chatId, {
                     text: `⚔️ @${tNum} anulou @${aNum}!`,
                     mentions: [denormalizeJid(activeTimer.targetId), denormalizeJid(activeTimer.attackerId)],
                 });
@@ -355,7 +446,7 @@ async function connectToWhatsApp() {
                 else if (activeTimer.skillId === 'respiracao_do_sol') { anulaMsg = `🌙 @${anNum} usou a Respiração da Lua! A técnica de @${aNum} foi bloqueada!`; }
                 else { anulaMsg = `🛡️ @${anNum} repeliu @${aNum}! Ataque em área anulado!`; }
                 
-                await sock.sendMessage(chatId, { text: anulaMsg, mentions: [rawAuthorId, denormalizeJid(activeTimer.attackerId)], });
+                await safeSendMessage(sock, chatId, { text: anulaMsg, mentions: [rawAuthorId, denormalizeJid(activeTimer.attackerId)], });
                 delete timers[chatId];
                 await saveDB(TIMERS_DB, timers); // (Item 6) Persiste a anulação
             }
@@ -367,7 +458,7 @@ async function connectToWhatsApp() {
             command = args.shift().toLowerCase();
 
         if (command !== 'cadastro' && !usuarios[authorId]) {
-            return sock.sendMessage(chatId, { text: `Não cadastrado! Use *.cadastro NOME*` });
+            return safeSendMessage(sock, chatId, { text: `Não cadastrado! Use *.cadastro NOME*` });
         }
         
         // Atualiza o lastKnownChatId (v3.4)
@@ -406,7 +497,7 @@ async function connectToWhatsApp() {
                 if (loja.categorias && loja.categorias[resolvedLojaId]) {
                     await handleLojaCategoria(message, resolvedLojaId, chatId);
                 } else {
-                    return sock.sendMessage(chatId, { text: `Loja *${lojaId}* não encontrada.` });
+                    return safeSendMessage(sock, chatId, { text: `Loja *${lojaId}* não encontrada.` });
                 }
                 break;
                 case 'comprar': await handleComprar(message, args, authorId, chatId); break;
@@ -452,7 +543,7 @@ async function connectToWhatsApp() {
                         if (claDef) {
                             await handleHabilidadesCla(message, authorId, chatId, claDef);
                         } else {
-                            return sock.sendMessage(chatId, { text: `Categoria/Clã *${habArg}* não encontrado.` });
+                            return safeSendMessage(sock, chatId, { text: `Categoria/Clã *${habArg}* não encontrado.` });
                         }
                     }
                 }
@@ -504,7 +595,7 @@ async function connectToWhatsApp() {
             }
         } catch (err) {
             console.error(`Erro comando "${command}":`, err);
-            await sock.sendMessage(chatId, { text: `Erro ".${command}". 😵` });
+            await safeSendMessage(sock, chatId, { text: `Erro ".${command}". 😵` });
         }
     });
     console.log("[DEBUG] Listener 'messages.upsert' (v4.0) definido.");
@@ -575,12 +666,12 @@ function getDateInBrasilia() {
 }
 
 async function handleCadastro(message, args, authorId, chatId) {
-    if (usuarios[authorId]) return sock.sendMessage(chatId, { text: 'Você já está cadastrado!' });
+    if (usuarios[authorId]) return safeSendMessage(sock, chatId, { text: 'Você já está cadastrado!' });
     const nome = args.join(' ');
-    if (!nome) return sock.sendMessage(chatId, { text: 'Precisa me dizer seu nome! Use: *.cadastro SEU-NOME*' });
+    if (!nome) return safeSendMessage(sock, chatId, { text: 'Precisa me dizer seu nome! Use: *.cadastro SEU-NOME*' });
     
     const claSorteado = sortearCla(clas); // Helper (Parte 3)
-    if (!claSorteado) return sock.sendMessage(chatId, { text: 'Erro no cadastro: Não foi possível sortear um clã (DB de clãs vazio?).' });
+    if (!claSorteado) return safeSendMessage(sock, chatId, { text: 'Erro no cadastro: Não foi possível sortear um clã (DB de clãs vazio?).' });
     
     let ouroInicial = 100, habilidadesIniciais = [];
     if (claSorteado.buff) {
@@ -609,7 +700,7 @@ async function handleCadastro(message, args, authorId, chatId) {
     const authorNumber = authorId.split('@')[0]; // Pega o número do JID
     const replyText = `🎉 Bem-vindo ao RPG, @${authorNumber}!\n\nNome: *${nome}*\nClã: *${claSorteado.nome}*\nBuff: ${claSorteado.buff?.description || 'Nenhum.'}\n\nComeça com *${fmt(ouroInicial)} Ouro*.\nUse *.menu* para comandos.`;
     
-    await sock.sendMessage(chatId, {
+    await safeSendMessage(sock, chatId, {
         text: replyText,
         mentions: [denormalizeJid(authorId)], // Envia JID denormalizado
     });
@@ -682,10 +773,10 @@ async function handleMenu(message, authorId, chatId) {
             const options = { caption: menuText, mentions: [denormalizeJid(authorId)] };
             if (isVideo) { options.video = mediaBuffer; options.gifPlayback = true; options.mimetype = 'video/mp4'; }
             else { options.image = mediaBuffer; }
-            await sock.sendMessage(chatId, options);
+            await safeSendMessage(sock, chatId, options);
         } else {
             console.warn(`[handleMenu] Nenhuma mídia (mp4, gif, jpg) enc. Usando fallback URL.`);
-            await sock.sendMessage(chatId, {
+            await safeSendMessage(sock, chatId, {
                 image: { url: 'https://img.odcdn.com.br/wp-content/uploads/2022/07/anya.jpg' },
                 caption: menuText,
                 mentions: [denormalizeJid(authorId)],
@@ -693,7 +784,7 @@ async function handleMenu(message, authorId, chatId) {
         }
     } catch (menuError) {
         console.error(`!!! Erro enviar menu ${authorId}: ${menuError.message}`);
-        await sock.sendMessage(chatId, { text: `⚠️ Erro mídia menu.\n\n${menuText}`, mentions: [denormalizeJid(authorId)] });
+        await safeSendMessage(sock, chatId, { text: `⚠️ Erro mídia menu.\n\n${menuText}`, mentions: [denormalizeJid(authorId)] });
     }
 }
 
@@ -702,7 +793,7 @@ async function handleLoja(message, chatId) {
     let txt = `${top}\n${mid} *Loja Renda Passiva*\n${mid}\n`;
     if (!loja.categorias || Object.keys(loja.categorias).length === 0) {
         txt += `${mid} Loja vazia. 😥\n${bot}`;
-        return sock.sendMessage(chatId, { text: txt });
+        return safeSendMessage(sock, chatId, { text: txt });
     }
     txt += `${mid} Escolha uma categoria:\n${mid} ${sep}\n`;
     for (const cId in loja.categorias) {
@@ -715,7 +806,7 @@ async function handleLoja(message, chatId) {
         txt += `\n`;
     }
     txt += `${bot}`;
-    await sock.sendMessage(chatId, { text: txt });
+    await safeSendMessage(sock, chatId, { text: txt });
 }
 
 async function handleLojaCategoria(message, catId, chatId) {
@@ -726,7 +817,7 @@ async function handleLojaCategoria(message, catId, chatId) {
         if (resolvedId) cat = loja.categorias[resolvedId];
     }
     
-    if (!cat) return sock.sendMessage(chatId, { text: `Categoria "${catId}" não enc. 😕` });
+    if (!cat) return safeSendMessage(sock, chatId, { text: `Categoria "${catId}" não enc. 😕` });
     
     const top = `╭ೋ🛒ೋ•═════ ${cat.nome_categoria} ═════╗`, mid = '🛒', bot = '╚══════════════•ೋ🛒ೋ╯', icon = '✨';
     // (Item 7) Comando de compra unificado
@@ -740,13 +831,13 @@ async function handleLojaCategoria(message, catId, chatId) {
         }
     }
     txt += `${bot}`;
-    await sock.sendMessage(chatId, { text: txt });
+    await safeSendMessage(sock, chatId, { text: txt });
 }
 
 // --- (Item 7) COMANDO DE COMPRA UNIFICADO ---
 async function handleComprar(message, args, authorId, chatId) {
     const itemId = args[0]?.toLowerCase();
-    if (!itemId) return sock.sendMessage(chatId, { text: `ID do item/habilidade? Ex: *.comprar itoshirin_gol* ou *.comprar deathnote*` }, { quoted: message });
+    if (!itemId) return safeSendMessage(sock, chatId, { text: `ID do item/habilidade? Ex: *.comprar itoshirin_gol* ou *.comprar deathnote*` }, { quoted: message });
 
     // Tenta encontrar na Loja
     const { item: lojaItem, catId } = findItemInLoja(itemId, true); // Helper (Parte 3)
@@ -763,10 +854,10 @@ async function handleComprar(message, args, authorId, chatId) {
         await handleCompraHabilidade(message, args, authorId, chatId, habItem, habId);
     } else if (habItem && habItem.preco === 0) {
         // Encontrou em Habilidades (mas não é comprável)
-        return sock.sendMessage(chatId, { text: `🚫 A habilidade *${habItem.nome}* não pode ser comprada (é uma skill de clã ou bônus).` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `🚫 A habilidade *${habItem.nome}* não pode ser comprada (é uma skill de clã ou bônus).` }, { quoted: message });
     } else {
         // Não encontrou em lugar nenhum
-        return sock.sendMessage(chatId, { text: `Item/Habilidade *${itemId}* não encontrado! 😕 Verifique na *.loja* ou *.habilidades*.` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Item/Habilidade *${itemId}* não encontrado! 😕 Verifique na *.loja* ou *.habilidades*.` }, { quoted: message });
     }
 }
 
@@ -777,14 +868,14 @@ async function handleCompraLojaItem(message, args, authorId, chatId, item, catId
 
     const jaPossui = user.passivos.some(p => p.id.toLowerCase() === originalItemId);
     if (jaPossui) {
-        return sock.sendMessage(chatId, { text: `🚫 Você já possui o item *${item.nome}*! Não é permitido comprar itens de renda repetidos.` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `🚫 Você já possui o item *${item.nome}*! Não é permitido comprar itens de renda repetidos.` }, { quoted: message });
     }
     
     // (Item 6) Desconto Gojo / Shinigami (em Loja)
     const { finalPrice, discountMsg } = getDynamicPrice(item, catId, user, 'loja'); // Helper (Parte 3)
 
     if ((user.ouro || 0) < finalPrice) {
-        return sock.sendMessage(chatId, { text: `Ouro insuficiente! 😥\nPreço: ${fmt(finalPrice)}${discountMsg}\nSeu: ${fmt(user.ouro || 0)}` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Ouro insuficiente! 😥\nPreço: ${fmt(finalPrice)}${discountMsg}\nSeu: ${fmt(user.ouro || 0)}` }, { quoted: message });
     }
     
     user.ouro -= finalPrice;
@@ -801,7 +892,7 @@ async function handleCompraLojaItem(message, args, authorId, chatId, item, catId
     await saveDB(USUARIOS_DB, usuarios);
     await saveDB(PAYOUTS_DB, payouts);
     
-    await sock.sendMessage(chatId, { text: `💸 Comprou *${item.nome}* por ${fmt(finalPrice)} Ouro${discountMsg}.\nRende em ${item.cooldown_min} min.` }, { quoted: message });
+    await safeSendMessage(sock, chatId, { text: `💸 Comprou *${item.nome}* por ${fmt(finalPrice)} Ouro${discountMsg}.\nRende em ${item.cooldown_min} min.` }, { quoted: message });
 }
 
 // --- (Item 7) Helper para compra de Habilidade ---
@@ -819,27 +910,27 @@ async function handleCompraHabilidade(message, args, authorId, chatId, hab, orig
         const C = 24 * 60 * 60 * 1000; // 24 horas
         const c = user.cooldowns.buy_expensive_skill || 0;
         if (n < c) {
-            return sock.sendMessage(chatId, { text: `⏳ Você só pode comprar habilidades caras (+49k) novamente em ${timeLeft(c)}.` }, { quoted: message });
+            return safeSendMessage(sock, chatId, { text: `⏳ Você só pode comprar habilidades caras (+49k) novamente em ${timeLeft(c)}.` }, { quoted: message });
         }
         user.cooldowns.buy_expensive_skill = n + C; // Aplica o cooldown
     }
 
     if ((user.ouro || 0) < finalPrice) {
         if (finalPrice > 49000) delete user.cooldowns.buy_expensive_skill; // Reverte CD se falhar
-        return sock.sendMessage(chatId, { text: `Ouro insuficiente! 😥\nPreço: ${fmt(finalPrice)}${discountMsg}\nSeu: ${fmt(user.ouro || 0)}` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Ouro insuficiente! 😥\nPreço: ${fmt(finalPrice)}${discountMsg}\nSeu: ${fmt(user.ouro || 0)}` }, { quoted: message });
     }
 
     // (Item 7) Verifica se já possui
     if (user.habilidades.includes(originalHabId)) {
         if (finalPrice > 49000) delete user.cooldowns.buy_expensive_skill; // Reverte CD
-         return sock.sendMessage(chatId, { text: `🚫 Você já possui a habilidade *${hab.nome}*!` }, { quoted: message });
+         return safeSendMessage(sock, chatId, { text: `🚫 Você já possui a habilidade *${hab.nome}*!` }, { quoted: message });
     }
     
     user.ouro -= finalPrice;
     user.habilidades.push(originalHabId);
     await saveDB(USUARIOS_DB, usuarios);
     
-    await sock.sendMessage(chatId, { text: `🔥 Comprou *${hab.nome}* por ${fmt(finalPrice)} Ouro${discountMsg}.\nUse ${hab.uso}!` }, { quoted: message });
+    await safeSendMessage(sock, chatId, { text: `🔥 Comprou *${hab.nome}* por ${fmt(finalPrice)} Ouro${discountMsg}.\nUse ${hab.uso}!` }, { quoted: message });
 }
 
 async function handleHabilidades(message, chatId) {
@@ -848,7 +939,7 @@ async function handleHabilidades(message, chatId) {
     
     if (typeof habilidades !== 'object' || !habilidades || Object.keys(habilidades).length === 0) {
         txt += `${mid} Habilidades vazias/não carregadas. 😥\n${bot}`;
-        return sock.sendMessage(chatId, { text: txt });
+        return safeSendMessage(sock, chatId, { text: txt });
     }
     
     const cats = {};
@@ -864,7 +955,7 @@ async function handleHabilidades(message, chatId) {
     
     if (!hasB) {
         txt += `${mid} Nenhuma comprável. 😥\n${bot}`;
-        return sock.sendMessage(chatId, { text: txt });
+        return safeSendMessage(sock, chatId, { text: txt });
     }
     
     txt += `${mid} Escolha uma categoria:\n${mid} ${sep}\n`;
@@ -878,7 +969,7 @@ async function handleHabilidades(message, chatId) {
         txt += `\n`;
     }
     txt += `${bot}`;
-    await sock.sendMessage(chatId, { text: txt });
+    await safeSendMessage(sock, chatId, { text: txt });
 }
 
 async function handleHabilidadesCategoria(message, catId, chatId) {
@@ -907,7 +998,7 @@ async function handleHabilidadesCategoria(message, catId, chatId) {
         }
     }
     
-    if (habs.length === 0) return sock.sendMessage(chatId, { text: `Nenhuma comprável em "${catId}" ou erro. 😕` });
+    if (habs.length === 0) return safeSendMessage(sock, chatId, { text: `Nenhuma comprável em "${catId}" ou erro. 😕` });
     
     const top = `╭ೋ💥ೋ•═════ Habilidades ${nomeCat} ═════╗`, mid = '💥', bot = '╚══════════════•ೋ💥ೋ╯', icon = '🔥';
     // (Item 7) Comando de compra unificado
@@ -930,7 +1021,7 @@ async function handleHabilidadesCategoria(message, catId, chatId) {
         txt += `${mid} ${icon} *${h.nome}*\n${mid}    ID: \`${hId}\`\n${mid}    Preço: ${fmt(finalPrice)}${discountMsg}\n${mid}    Uso: ${h.uso}\n${mid}    Info: ${h.descricao}\n${mid}\n`;
     }
     txt += `${bot}`;
-    await sock.sendMessage(chatId, { text: txt });
+    await safeSendMessage(sock, chatId, { text: txt });
 }
 
 async function handleTrade(message, args, authorId, chatId) {
@@ -939,7 +1030,7 @@ async function handleTrade(message, args, authorId, chatId) {
     const habId = args[0]?.toLowerCase();
     
     if (!habId) {
-        return sock.sendMessage(chatId, { text: `Qual habilidade? Use: *.trade <id_habilidade> @alvo*` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Qual habilidade? Use: *.trade <id_habilidade> @alvo*` }, { quoted: message });
     }
 
     let rawTargetJid = null;
@@ -948,7 +1039,7 @@ async function handleTrade(message, args, authorId, chatId) {
     
     const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     if (mentionedJids.length === 0) {
-        return sock.sendMessage(chatId, { text: `Marque o usuário para quem quer transferir! Use: *.trade ${habId} @alvo*` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Marque o usuário para quem quer transferir! Use: *.trade ${habId} @alvo*` }, { quoted: message });
     }
     
     rawTargetJid = mentionedJids[0];
@@ -956,24 +1047,24 @@ async function handleTrade(message, args, authorId, chatId) {
     targetNumber = rawTargetJid.split('@')[0];
     
     const targetUser = usuarios[tId];
-    if (!targetUser) return sock.sendMessage(chatId, { text: 'Alvo não cadastrado.' }, { quoted: message });
-    if (tId === authorId) return sock.sendMessage(chatId, { text: 'Não pode transferir para si mesmo!' }, { quoted: message });
+    if (!targetUser) return safeSendMessage(sock, chatId, { text: 'Alvo não cadastrado.' }, { quoted: message });
+    if (tId === authorId) return safeSendMessage(sock, chatId, { text: 'Não pode transferir para si mesmo!' }, { quoted: message });
 
     const habIndex = user.habilidades?.findIndex(h => h.toLowerCase() === habId);
     if (habIndex === -1 || habIndex === undefined) {
-        return sock.sendMessage(chatId, { text: `Você não possui a habilidade *${habId}*!` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Você não possui a habilidade *${habId}*!` }, { quoted: message });
     }
     
     const originalHabId = user.habilidades[habIndex];
     const habData = (typeof habilidades === 'object' && habilidades) ? habilidades[originalHabId] : null;
 
     if (!habData || habData.preco === 0) {
-        return sock.sendMessage(chatId, { text: `A habilidade *${habData?.nome || habId}* é intransferível (provavelmente é uma skill de clã).` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `A habilidade *${habData?.nome || habId}* é intransferível (provavelmente é uma skill de clã).` }, { quoted: message });
     }
     
     // (Item 7) Verifica se o alvo já possui
     if (targetUser.habilidades?.includes(originalHabId)) {
-        return sock.sendMessage(chatId, { text: `🚫 @${targetNumber} já possui a habilidade *${habData.nome}*!`, mentions: [denormalizeJid(tId)] }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `🚫 @${targetNumber} já possui a habilidade *${habData.nome}*!`, mentions: [denormalizeJid(tId)] }, { quoted: message });
     }
 
     const [tradedSkill] = user.habilidades.splice(habIndex, 1);
@@ -985,7 +1076,7 @@ async function handleTrade(message, args, authorId, chatId) {
     const authorNumber = authorId.split('@')[0];
     const replyText = `⚡ @${authorNumber} confiou seu poder lendário (*${habData.nome}*) para @${targetNumber}! Que o destino os observe! ⚡`;
     
-    await sock.sendMessage(chatId, {
+    await safeSendMessage(sock, chatId, {
         text: replyText,
         mentions: [denormalizeJid(authorId), denormalizeJid(tId)],
     });
@@ -996,10 +1087,10 @@ async function handleTrade(message, args, authorId, chatId) {
 async function handleClas(message, authorId, chatId) {
     const user = usuarios[authorId];
     const claData = clas.find(c => c.id === user.cla_id);
-    if (!claData) return sock.sendMessage(chatId, { text: 'Erro: Não foi possível encontrar dados do seu clã.' });
+    if (!claData) return safeSendMessage(sock, chatId, { text: 'Erro: Não foi possível encontrar dados do seu clã.' });
 
     const { rarities, total } = getClaRarities(); // Helper (Parte 3)
-    if (total === 0) return sock.sendMessage(chatId, { text: 'Erro: Clãs não configurados ou com chance 0.' });
+    if (total === 0) return safeSendMessage(sock, chatId, { text: 'Erro: Clãs não configurados ou com chance 0.' });
 
     const percentage = rarities[user.cla_id] || 0;
     const authorNumber = authorId.split('@')[0];
@@ -1026,7 +1117,7 @@ async function handleClas(message, authorId, chatId) {
     txt += `${mid} Use *.girarcla* para trocar (Custo: ${fmt(CUSTO_GIRAR_CLA)} Ouro).\n`;
     txt += `${bot}`;
 
-    await sock.sendMessage(chatId, {
+    await safeSendMessage(sock, chatId, {
         text: txt,
         mentions: [denormalizeJid(authorId)],
     });
@@ -1035,7 +1126,7 @@ async function handleClas(message, authorId, chatId) {
 async function handleGirarCla(message, args, authorId, chatId) {
     const user = usuarios[authorId];
     if ((user.ouro || 0) < CUSTO_GIRAR_CLA) {
-        return sock.sendMessage(chatId, { text: `Ouro insuficiente! 😥\nCusta: ${fmt(CUSTO_GIRAR_CLA)}\nSeu: ${fmt(user.ouro || 0)}` });
+        return safeSendMessage(sock, chatId, { text: `Ouro insuficiente! 😥\nCusta: ${fmt(CUSTO_GIRAR_CLA)}\nSeu: ${fmt(user.ouro || 0)}` });
     }
 
     user.ouro -= CUSTO_GIRAR_CLA;
@@ -1048,7 +1139,7 @@ async function handleGirarCla(message, args, authorId, chatId) {
     if (!claSorteado) {
         user.ouro += CUSTO_GIRAR_CLA; // Reembolsa
         await saveDB(USUARIOS_DB, usuarios);
-        return sock.sendMessage(chatId, { text: 'Erro ao girar: Não foi possível sortear um clã (DB de clãs vazio ou só existe o seu?). Ouro devolvido.' });
+        return safeSendMessage(sock, chatId, { text: 'Erro ao girar: Não foi possível sortear um clã (DB de clãs vazio ou só existe o seu?). Ouro devolvido.' });
     }
     
     // --- LÓGICA DE RESET DE CLÃ (Item 5 - Generalizada) ---
@@ -1090,7 +1181,7 @@ async function handleGirarCla(message, args, authorId, chatId) {
     const authorNumber = authorId.split('@')[0];
     const replyText = `🔄 @${authorNumber} gastou ${fmt(CUSTO_GIRAR_CLA)} Ouro!\n\nClã Antigo: *${claAnterior}*\nNovo Clã: *${claSorteado.nome}*\n\nBuff: ${claSorteado.buff?.description || 'Nenhum.'}`;
     
-    await sock.sendMessage(chatId, {
+    await safeSendMessage(sock, chatId, {
         text: replyText,
         mentions: [denormalizeJid(authorId)],
     });
@@ -1098,7 +1189,7 @@ async function handleGirarCla(message, args, authorId, chatId) {
 
 async function handleListarClas(message, chatId) {
     const { rarities, total } = getClaRarities(); // Helper (Parte 3)
-    if (total === 0) return sock.sendMessage(chatId, { text: 'Nenhum clã configurado ou todos têm chance 0.' });
+    if (total === 0) return safeSendMessage(sock, chatId, { text: 'Nenhum clã configurado ou todos têm chance 0.' });
 
     const top = '╭ೋ⛩️ೋ•═══════════╗', mid = '⛩️', bot = '╚═══════════•ೋ⛩️ೋ╯', icon = '🔹';
     let txt = `${top}\n${mid} *Lista de Clãs*\n${mid}\n`;
@@ -1117,7 +1208,7 @@ async function handleListarClas(message, chatId) {
         txt += `${mid}    Raridade: ${percentage.toFixed(2)}%\n`;
     }
     txt += `${bot}`;
-    await sock.sendMessage(chatId, { text: txt });
+    await safeSendMessage(sock, chatId, { text: txt });
 }
 
 // --- (Item 8) NOVO COMANDO ---
@@ -1141,7 +1232,7 @@ async function handleConfigurar(message, chatId) {
     txt += `${mid}    (Estado Atual: *${rendaNotifState}*)\n`;
     txt += `${bot}`;
     
-    await sock.sendMessage(chatId, { text: txt });
+    await safeSendMessage(sock, chatId, { text: txt });
 }
 
 async function handleNick(message, args, authorId, chatId) {
@@ -1153,12 +1244,12 @@ async function handleNick(message, args, authorId, chatId) {
     const c = user.cooldowns.nick || 0;
     const n = Date.now();
     if (n < c) {
-        return sock.sendMessage(chatId, { text: `⏳ Você só pode mudar seu nick novamente em ${timeLeft(c)}.` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `⏳ Você só pode mudar seu nick novamente em ${timeLeft(c)}.` }, { quoted: message });
     }
 
     const novoNome = args.join(' ');
     if (!novoNome) {
-        return sock.sendMessage(chatId, { text: 'Qual nome? Use: *.nick <novo-nome>*' }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: 'Qual nome? Use: *.nick <novo-nome>*' }, { quoted: message });
     }
     
     const nomeAntigo = user.nome;
@@ -1167,7 +1258,7 @@ async function handleNick(message, args, authorId, chatId) {
     
     await saveDB(USUARIOS_DB, usuarios);
     
-    await sock.sendMessage(chatId, { text: `👤 Nome alterado!\n\nAntigo: *${nomeAntigo}*\nNovo: *${novoNome}*` }, { quoted: message });
+    await safeSendMessage(sock, chatId, { text: `👤 Nome alterado!\n\nAntigo: *${nomeAntigo}*\nNovo: *${novoNome}*` }, { quoted: message });
 }
 
 async function handleSetNotifGrupo(message, authorId, chatId) {
@@ -1175,7 +1266,7 @@ async function handleSetNotifGrupo(message, authorId, chatId) {
     const user = usuarios[authorId];
     
     if (user.notificationChatId === chatId) {
-        return sock.sendMessage(chatId, { text: `Este grupo já está definido como seu grupo de notificações.` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Este grupo já está definido como seu grupo de notificações.` }, { quoted: message });
     }
     
     user.notificationChatId = chatId;
@@ -1183,11 +1274,13 @@ async function handleSetNotifGrupo(message, authorId, chatId) {
     
     let groupName = 'Este grupo';
     try {
-        const groupMeta = await sock.groupMetadata(chatId);
-        groupName = groupMeta.subject;
+        const groupMeta = await safeGroupMetadata(sock, chatId);
+        if (groupMeta && groupMeta.subject) {
+            groupName = groupMeta.subject;
+        }
     } catch (e) { console.warn("Não foi possível pegar o nome do grupo para .set"); }
 
-    await sock.sendMessage(chatId, { text: `✅ Sucesso! Você agora receberá suas notificações de renda passiva em *${groupName}*.` }, { quoted: message });
+    await safeSendMessage(sock, chatId, { text: `✅ Sucesso! Você agora receberá suas notificações de renda passiva em *${groupName}*.` }, { quoted: message });
 }
 
 // --- (Item 8) NOVO COMANDO ---
@@ -1205,7 +1298,7 @@ async function handleToggleRenda(message, authorId, chatId) {
         ? '🔕 Notificações de renda passiva *DESATIVADAS*. (Você continuará ganhando ouro silenciosamente.)'
         : '🔔 Notificações de renda passiva *ATIVADAS*.';
         
-    await sock.sendMessage(chatId, { text: msg }, { quoted: message });
+    await safeSendMessage(sock, chatId, { text: msg }, { quoted: message });
 }
 
 // --- (Item 7) HANDLER ATUALIZADO: Habilidades Consumíveis (Normais)
@@ -1217,12 +1310,12 @@ async function handleUsarHabilidade(message, command, authorId, chatId) {
         
     if (!hab) {
         console.error(`Erro: Skill ${command} nula.`);
-        return sock.sendMessage(chatId, { text: `Erro: Skill ${command} nula.` });
+        return safeSendMessage(sock, chatId, { text: `Erro: Skill ${command} nula.` });
     }
 
     const habIndex = user.habilidades?.findIndex(h => h.toLowerCase() === command);
     if (habIndex === -1 || habIndex === undefined)
-        return sock.sendMessage(chatId, { text: `Não possui *${hab.nome}*!` });
+        return safeSendMessage(sock, chatId, { text: `Não possui *${hab.nome}*!` });
 
     const originalHabId = user.habilidades[habIndex];
     const reqT = hab.duracao_seg && hab.msg_anular;
@@ -1231,7 +1324,7 @@ async function handleUsarHabilidade(message, command, authorId, chatId) {
     console.log(`[SKILL-DEBUG] Skill: ${command}, reqT: ${reqT}, timers[chatId]: ${JSON.stringify(timers[chatId])}`);
     if (reqT && timers[chatId] && command !== 'zawarudo') {
         console.log(`[SKILL-DEBUG] Timer ativo detectado para ${chatId}, bloqueando skill ${command}`);
-        return sock.sendMessage(chatId, { text: 'Timer ativo!' });
+        return safeSendMessage(sock, chatId, { text: 'Timer ativo!' });
     }
     
     // --- LÓGICA DE ROTEAMENTO (A PARTE QUE FALTAVA) ---
@@ -1271,15 +1364,15 @@ async function handleUsarHabilidade(message, command, authorId, chatId) {
     
     const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     if (mentionedJids.length === 0) {
-        return sock.sendMessage(chatId, { text: `Marque um alvo! Uso: *${hab.uso}*` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Marque um alvo! Uso: *${hab.uso}*` }, { quoted: message });
     }
     
     rawTargetJid = mentionedJids[0];
     tId = normalizeJid(rawTargetJid);
     targetNumber = rawTargetJid.split('@')[0];
     
-    if (!usuarios[tId]) return sock.sendMessage(chatId, { text: 'Alvo não cadastrado.' }, { quoted: message });
-    if (tId === authorId) return sock.sendMessage(chatId, { text: 'Não pode usar em si mesmo!' }, { quoted: message });
+    if (!usuarios[tId]) return safeSendMessage(sock, chatId, { text: 'Alvo não cadastrado.' }, { quoted: message });
+    if (tId === authorId) return safeSendMessage(sock, chatId, { text: 'Não pode usar em si mesmo!' }, { quoted: message });
     
     // 4. Rota para Skills de Informação (ex: .olhos_shinigami)
     if (hab.is_info_skill) {
@@ -1332,7 +1425,7 @@ async function handleUsarHabilidade(message, command, authorId, chatId) {
         // Devolve a skill se o envio falhar
         user.habilidades.push(originalHabId);
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `Erro ao usar ${command}. Habilidade devolvida.` });
+        await safeSendMessage(sock, chatId, { text: `Erro ao usar ${command}. Habilidade devolvida.` });
     }
 }
 
@@ -1364,7 +1457,7 @@ async function handleSelfBuffSkill(message, authorId, chatId, hab, command, orig
          // Devolve a skill se o envio falhar
          user.habilidades.push(originalHabId);
          await saveDB(USUARIOS_DB, usuarios);
-         await sock.sendMessage(chatId, { text: `Erro ao usar ${command}. Habilidade devolvida.` });
+         await safeSendMessage(sock, chatId, { text: `Erro ao usar ${command}. Habilidade devolvida.` });
     }
 }
 
@@ -1399,9 +1492,9 @@ async function handleInfoSkill(message, authorId, targetId, chatId, hab, command
          if (!hab.is_clan_skill) {
              user.habilidades.push(originalHabId);
              await saveDB(USUARIOS_DB, usuarios);
-             await sock.sendMessage(chatId, { text: `Erro ao usar ${command}. Habilidade devolvida.` });
+             await safeSendMessage(sock, chatId, { text: `Erro ao usar ${command}. Habilidade devolvida.` });
          } else {
-             await sock.sendMessage(chatId, { text: `Erro ao usar ${command}.` });
+             await safeSendMessage(sock, chatId, { text: `Erro ao usar ${command}.` });
          }
     }
 }
@@ -1495,7 +1588,7 @@ async function handleZawarudo(message, authorId, chatId, originalHabId) {
             appliedSettings: []
         };
         await saveDB(TIMERS_DB, timers);
-        await sock.sendMessage(chatId, { text: `⚠️ ZA WARUDO executado apenas internamente devido a erro.` });
+        await safeSendMessage(sock, chatId, { text: `⚠️ ZA WARUDO executado apenas internamente devido a erro.` });
     }
 }
 
@@ -1534,7 +1627,7 @@ async function handleSkillArea(message, authorId, chatId, originalHabId, hab, co
         if (hab.duracao_seg && hab.msg_anular) {
              fC += ` ${hab.duracao_seg}s p/ anular: *${hab.msg_anular}*`;
         }
-        await sock.sendMessage(chatId, { text: fC, mentions: [denormalizeJid(authorId)] });
+        await safeSendMessage(sock, chatId, { text: fC, mentions: [denormalizeJid(authorId)] });
         
         // (Item 6) Salva timer mesmo em fallback de mídia
         if (hab.duracao_seg && hab.msg_anular) {
@@ -1555,13 +1648,13 @@ async function handleUsarHabilidadeCla(message, command, authorId, chatId) {
         
     if (!hab || !hab.is_clan_skill) {
         console.error(`Erro: Skill de clã ${command} nula ou mal configurada.`);
-        return sock.sendMessage(chatId, { text: `Erro: Skill de clã ${command} nula.` });
+        return safeSendMessage(sock, chatId, { text: `Erro: Skill de clã ${command} nula.` });
     }
 
     // 1. Verifica se o usuário tem a skill (segurança)
     const habIndex = user.habilidades?.findIndex(h => h.toLowerCase() === command);
     if (habIndex === -1 || habIndex === undefined)
-        return sock.sendMessage(chatId, { text: `Você não deveria ter *${hab.nome}*! (Não pertence ao clã?)` });
+        return safeSendMessage(sock, chatId, { text: `Você não deveria ter *${hab.nome}*! (Não pertence ao clã?)` });
     
     const originalHabId = user.habilidades[habIndex];
     
@@ -1572,7 +1665,7 @@ async function handleUsarHabilidadeCla(message, command, authorId, chatId) {
     const cd = user.cooldowns[cdKey] || 0;
     
     if (n < cd) {
-        return sock.sendMessage(chatId, { text: `⏳ Habilidade *${hab.nome}* em cooldown! (${timeLeft(cd)})` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `⏳ Habilidade *${hab.nome}* em cooldown! (${timeLeft(cd)})` }, { quoted: message });
     }
     
     // 3. Aplica Cooldown (NÃO consome a skill)
@@ -1594,14 +1687,14 @@ async function handleUsarHabilidadeCla(message, command, authorId, chatId) {
     
     const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     if (mentionedJids.length === 0) {
-        return sock.sendMessage(chatId, { text: `Marque um alvo! Uso: *${hab.uso}*` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Marque um alvo! Uso: *${hab.uso}*` }, { quoted: message });
     }
     
     rawTargetJid = mentionedJids[0];
     tId = normalizeJid(rawTargetJid);
     
-    if (!usuarios[tId]) return sock.sendMessage(chatId, { text: 'Alvo não cadastrado.' }, { quoted: message });
-    if (tId === authorId) return sock.sendMessage(chatId, { text: 'Não pode usar em si mesmo!' }, { quoted: message });
+    if (!usuarios[tId]) return safeSendMessage(sock, chatId, { text: 'Alvo não cadastrado.' }, { quoted: message });
+    if (tId === authorId) return safeSendMessage(sock, chatId, { text: 'Não pode usar em si mesmo!' }, { quoted: message });
     
     // Rota para Skills de Informação (ex: .olhos_shinigami)
     if (hab.is_info_skill) {
@@ -1644,7 +1737,7 @@ async function handleUsarHabilidadeCla(message, command, authorId, chatId) {
     } catch (sE) {
         console.error(`[SKILL CLAN] Erro ativação ${command}: ${sE.message}`);
         // (Não devolve a skill, pois não foi gasta)
-        await sock.sendMessage(chatId, { text: `Erro ao usar ${command}.` });
+        await safeSendMessage(sock, chatId, { text: `Erro ao usar ${command}.` });
     }
 }
 
@@ -1654,13 +1747,13 @@ async function handleUsarHabilidadeCla(message, command, authorId, chatId) {
 async function handleBanco(m, a, chatId) {
     const u = usuarios[a];
     u.bank = u.bank || 0;
-    await sock.sendMessage(chatId, { text: `🏦 *Banco*\nSaldo: ${fmt(u.bank)} Ouro` });
+    await safeSendMessage(sock, chatId, { text: `🏦 *Banco*\nSaldo: ${fmt(u.bank)} Ouro` });
 }
 
 async function handleCarteira(m, a, chatId) {
     const u = usuarios[a];
     const text = `💰 *Carteira*\n\nCarteira: ${fmt(u.ouro || 0)} 💰\nBanco: ${fmt(u.bank || 0)} 🏦`;
-    await sock.sendMessage(chatId, { text: text }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: text }, { quoted: m });
 }
 
 async function handleDepositar(m, g, a, chatId) {
@@ -1674,19 +1767,19 @@ async function handleDepositar(m, g, a, chatId) {
     const c = u.cooldowns.deposit || 0;
     const n = Date.now();
     if (n < c) {
-        return sock.sendMessage(chatId, { text: `⏳ Você só pode depositar novamente em ${timeLeft(c)}.` }, { quoted: m });
+        return safeSendMessage(sock, chatId, { text: `⏳ Você só pode depositar novamente em ${timeLeft(c)}.` }, { quoted: m });
     }
 
     const o = parseAmount(g[0], u.ouro); // Helper (Parte 4)
-    if (!isFinite(o) || o <= 0) return sock.sendMessage(chatId, { text: `🤔 Valor inválido! Use *.depositar <valor | all>*` }, { quoted: m });
-    if (o > u.ouro) return sock.sendMessage(chatId, { text: `😥 Você não tem ${fmt(o)} Ouro.` }, { quoted: m });
+    if (!isFinite(o) || o <= 0) return safeSendMessage(sock, chatId, { text: `🤔 Valor inválido! Use *.depositar <valor | all>*` }, { quoted: m });
+    if (o > u.ouro) return safeSendMessage(sock, chatId, { text: `😥 Você não tem ${fmt(o)} Ouro.` }, { quoted: m });
     
     u.ouro -= o;
     u.bank += o;
     u.cooldowns.deposit = n + DEPOSIT_COOLDOWN; // Aplica o cooldown
     
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `✅ Depositado ${fmt(o)}.\nCarteira: ${fmt(u.ouro)}\nBanco: ${fmt(u.bank)}` });
+    await safeSendMessage(sock, chatId, { text: `✅ Depositado ${fmt(o)}.\nCarteira: ${fmt(u.ouro)}\nBanco: ${fmt(u.bank)}` });
 }
 
 async function handleSacar(m, g, a, chatId) {
@@ -1695,12 +1788,12 @@ async function handleSacar(m, g, a, chatId) {
     u.ouro = u.ouro || 0;
     u.bank = u.bank || 0;
     const o = parseAmount(g[0], u.bank); // Helper (Parte 4)
-    if (!isFinite(o) || o <= 0) return sock.sendMessage(chatId, { text: `🤔 Valor inválido! Use *.sacar <valor | all>*` }, { quoted: m });
-    if (o > u.bank) return sock.sendMessage(chatId, { text: `😥 Saldo insuficiente (${fmt(u.bank)}).` }, { quoted: m });
+    if (!isFinite(o) || o <= 0) return safeSendMessage(sock, chatId, { text: `🤔 Valor inválido! Use *.sacar <valor | all>*` }, { quoted: m });
+    if (o > u.bank) return safeSendMessage(sock, chatId, { text: `😥 Saldo insuficiente (${fmt(u.bank)}).` }, { quoted: m });
     u.bank -= o;
     u.ouro += o;
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `✅ Sacado ${fmt(o)}.\nCarteira: ${fmt(u.ouro)}\nBanco: ${fmt(u.bank)}` });
+    await safeSendMessage(sock, chatId, { text: `✅ Sacado ${fmt(o)}.\nCarteira: ${fmt(u.ouro)}\nBanco: ${fmt(u.bank)}` });
 }
 
 async function handlePix(m, args, authorId, chatId) {
@@ -1712,7 +1805,7 @@ async function handlePix(m, args, authorId, chatId) {
     const c = u.cooldowns.pix || 0;
     const n = Date.now();
     if (n < c) {
-        return sock.sendMessage(chatId, { text: `⏳ Você só pode fazer *.pix* novamente em ${timeLeft(c)}.` }, { quoted: m });
+        return safeSendMessage(sock, chatId, { text: `⏳ Você só pode fazer *.pix* novamente em ${timeLeft(c)}.` }, { quoted: m });
     }
 
     const amount = parseAmount(args[0], u.ouro); // Helper (Parte 4)
@@ -1723,7 +1816,7 @@ async function handlePix(m, args, authorId, chatId) {
     
     const mentionedJids = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
     if (mentionedJids.length === 0) {
-        return sock.sendMessage(chatId, { text: `Marque o usuário para quem quer transferir! Use: *.pix <valor> @alvo*` }, { quoted: m });
+        return safeSendMessage(sock, chatId, { text: `Marque o usuário para quem quer transferir! Use: *.pix <valor> @alvo*` }, { quoted: m });
     }
     
     rawTargetJid = mentionedJids[0];
@@ -1731,11 +1824,11 @@ async function handlePix(m, args, authorId, chatId) {
     targetNumber = rawTargetJid.split('@')[0];
     
     const targetUser = usuarios[tId];
-    if (!targetUser) return sock.sendMessage(chatId, { text: 'Alvo não cadastrado.' }, { quoted: m });
-    if (tId === authorId) return sock.sendMessage(chatId, { text: 'Não pode transferir para si mesmo!' }, { quoted: m });
+    if (!targetUser) return safeSendMessage(sock, chatId, { text: 'Alvo não cadastrado.' }, { quoted: m });
+    if (tId === authorId) return safeSendMessage(sock, chatId, { text: 'Não pode transferir para si mesmo!' }, { quoted: m });
     
-    if (!isFinite(amount) || amount <= 0) return sock.sendMessage(chatId, { text: `🤔 Valor inválido! Use *.pix <valor | all> @alvo*` }, { quoted: m });
-    if (amount > u.ouro) return sock.sendMessage(chatId, { text: `😥 Você não tem ${fmt(amount)} Ouro na carteira.` }, { quoted: m });
+    if (!isFinite(amount) || amount <= 0) return safeSendMessage(sock, chatId, { text: `🤔 Valor inválido! Use *.pix <valor | all> @alvo*` }, { quoted: m });
+    if (amount > u.ouro) return safeSendMessage(sock, chatId, { text: `😥 Você não tem ${fmt(amount)} Ouro na carteira.` }, { quoted: m });
 
     u.ouro -= amount;
     targetUser.ouro = (targetUser.ouro || 0) + amount;
@@ -1746,7 +1839,7 @@ async function handlePix(m, args, authorId, chatId) {
     const authorNumber = authorId.split('@')[0];
     const replyText = `💸 *Transferência PIX*\n\n@${authorNumber} enviou *${fmt(amount)} Ouro* para @${targetNumber}!`;
     
-    await sock.sendMessage(chatId, {
+    await safeSendMessage(sock, chatId, {
         text: replyText,
         mentions: [denormalizeJid(authorId), denormalizeJid(tId)],
     });
@@ -1776,12 +1869,12 @@ async function handleAddMoney(m, g, a, chatId) {
 
     const u = usuarios[targetId];
     if (!u) {
-        return sock.sendMessage(chatId, { text: 'Alvo não encontrado no DB.' }, { quoted: m });
+        return safeSendMessage(sock, chatId, { text: 'Alvo não encontrado no DB.' }, { quoted: m });
     }
 
     const amount = parseInt(amountStr);
     if (isNaN(amount)) { // Permite add negativo (remover)
-        return sock.sendMessage(chatId, { text: 'Valor inválido. Use *.add <quantidade> [@alvo]*' }, { quoted: m });
+        return safeSendMessage(sock, chatId, { text: 'Valor inválido. Use *.add <quantidade> [@alvo]*' }, { quoted: m });
     }
     
     u.ouro = (u.ouro || 0) + amount;
@@ -1790,7 +1883,7 @@ async function handleAddMoney(m, g, a, chatId) {
     const action = amount > 0 ? "Adicionado" : "Removido";
     const amountAbs = Math.abs(amount);
     
-    await sock.sendMessage(chatId, { text: `✅ (ADM) ${action} ${fmt(amountAbs)} Ouro.\nAlvo: *${u.nome}*\nNovo saldo: ${fmt(u.ouro)}` }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: `✅ (ADM) ${action} ${fmt(amountAbs)} Ouro.\nAlvo: *${u.nome}*\nNovo saldo: ${fmt(u.ouro)}` }, { quoted: m });
 }
 
 
@@ -1805,7 +1898,7 @@ async function handleDiario(message, authorId, chatId) {
     const today = getDateInBrasilia(); // Pega a data YYYY-MM-DD de Brasília
 
     if (user.cooldowns.diario === today) {
-        return sock.sendMessage(chatId, { text: `Você já pegou seu prêmio diário hoje! Volte amanhã.` }, { quoted: message });
+        return safeSendMessage(sock, chatId, { text: `Você já pegou seu prêmio diário hoje! Volte amanhã.` }, { quoted: message });
     }
 
     const premio = Math.floor(Math.random() * 4001) + 1000; // 1000 a 5000
@@ -1816,7 +1909,7 @@ async function handleDiario(message, authorId, chatId) {
     
     await saveDB(USUARIOS_DB, usuarios);
 
-    await sock.sendMessage(chatId, {
+    await safeSendMessage(sock, chatId, {
         text: `🎁 *Prêmio Diário!*\nVocê recebeu *${fmt(premio)}* de Ouro!`,
         mentions: [denormalizeJid(authorId)]
     }, { quoted: message });
@@ -1826,49 +1919,49 @@ async function handleTrabalhar(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.work || 0, n = Date.now(), C = 7 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Descanse! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Descanse! Volte em ${timeLeft(c)}.` }, { quoted: m });
     
     const b = 180 + Math.floor(Math.random() * 181); // Antes: 200-400
     const l = getBuffMultiplier(u, 'activity_bonus'), t = Math.round(b * l);
     u.ouro = (u.ouro || 0) + t;
     u.cooldowns.work = n + C;
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `💼 Trabalhou e ganhou ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: `💼 Trabalhou e ganhou ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
 }
 
 async function handleMinerar(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.mine || 0, n = Date.now(), C = 5 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Mina esgotada! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Mina esgotada! Volte em ${timeLeft(c)}.` }, { quoted: m });
     
     const g = 110 + Math.floor(Math.random() * 111); // Antes: 120-240
     const l = getBuffMultiplier(u, 'activity_bonus'), t = Math.round(g * l);
     u.ouro = (u.ouro || 0) + t;
     u.cooldowns.mine = n + C;
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `⛏️ Minerou ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: `⛏️ Minerou ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
 }
 
 async function handlePescar(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.fish || 0, n = Date.now(), C = 6 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Peixes sumiram! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Peixes sumiram! Volte em ${timeLeft(c)}.` }, { quoted: m });
     
     const g = 140 + Math.floor(Math.random() * 141); // Antes: 160-320
     const l = getBuffMultiplier(u, 'activity_bonus'), t = Math.round(g * l);
     u.ouro = (u.ouro || 0) + t;
     u.cooldowns.fish = n + C;
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `🎣 Vendeu peixes por ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: `🎣 Vendeu peixes por ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
 }
 
 async function handleFazerBolo(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.fazerbolo || 0, n = Date.now(), C = 6 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Cozinha bagunçada! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Cozinha bagunçada! Volte em ${timeLeft(c)}.` }, { quoted: m });
 
     u.cooldowns.fazerbolo = n + C;
     
@@ -1879,10 +1972,10 @@ async function handleFazerBolo(m, a, chatId) {
         
         u.ouro = (u.ouro || 0) + totalGain;
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `🎂 ${u.nome} fez um bolo de baunilha delicioso e ganhou ${fmt(totalGain)} Ouro!${activityMultiplier > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
+        await safeSendMessage(sock, chatId, { text: `🎂 ${u.nome} fez um bolo de baunilha delicioso e ganhou ${fmt(totalGain)} Ouro!${activityMultiplier > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
     } else {
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `😷 ${u.nome} tentou fazer um bolo e acabou criando um bolo de cocô 💩 kkkkk` }, { quoted: m });
+        await safeSendMessage(sock, chatId, { text: `😷 ${u.nome} tentou fazer um bolo e acabou criando um bolo de cocô 💩 kkkkk` }, { quoted: m });
     }
 }
 
@@ -1890,7 +1983,7 @@ async function handleForjar(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.forjar || 0, n = Date.now(), C = 6 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Fornalha fria! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Fornalha fria! Volte em ${timeLeft(c)}.` }, { quoted: m });
 
     u.cooldowns.forjar = n + C;
     
@@ -1912,10 +2005,10 @@ async function handleForjar(m, a, chatId) {
         const totalGain = Math.round(baseGain * activityMultiplier * forjarMultiplier);
         u.ouro = (u.ouro || 0) + totalGain;
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `🔥 Forja bem-sucedida! Você criou uma lâmina e vendeu por ${fmt(totalGain)} Ouro!${bonusMsg}` }, { quoted: m });
+        await safeSendMessage(sock, chatId, { text: `🔥 Forja bem-sucedida! Você criou uma lâmina e vendeu por ${fmt(totalGain)} Ouro!${bonusMsg}` }, { quoted: m });
     } else {
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `💥 Falha! A lâmina quebrou na forja. Você não ganhou nada e perdeu materiais.` }, { quoted: m });
+        await safeSendMessage(sock, chatId, { text: `💥 Falha! A lâmina quebrou na forja. Você não ganhou nada e perdeu materiais.` }, { quoted: m });
     }
 }
 
@@ -1924,35 +2017,35 @@ async function handleExplorar(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.explore || 0, n = Date.now(), C = 8 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Área perigosa! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Área perigosa! Volte em ${timeLeft(c)}.` }, { quoted: m });
     
     const g = 220 + Math.floor(Math.random() * 221); // Antes: 250-500
     const l = getBuffMultiplier(u, 'activity_bonus'), t = Math.round(g * l);
     u.ouro = (u.ouro || 0) + t;
     u.cooldowns.explore = n + C;
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `🧭 Explorou e achou ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: `🧭 Explorou e achou ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
 }
 
 async function handleCaçar(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.hunt || 0, n = Date.now(), C = 9 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Animais fugiram! Volte em ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Animais fugiram! Volte em ${timeLeft(c)}.` }, { quoted: m });
     
     const g = 260 + Math.floor(Math.random() * 261); // Antes: 300-600
     const l = getBuffMultiplier(u, 'activity_bonus'), t = Math.round(g * l);
     u.ouro = (u.ouro || 0) + t;
     u.cooldowns.hunt = n + C;
     await saveDB(USUARIOS_DB, usuarios);
-    await sock.sendMessage(chatId, { text: `🏹 Caçou e vendeu peles por ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
+    await safeSendMessage(sock, chatId, { text: `🏹 Caçou e vendeu peles por ${fmt(t)} Ouro!${l > 1.0 ? ' (Bônus!)' : ''}` }, { quoted: m });
 }
 
 async function handleCrime(m, a, chatId) {
     const u = usuarios[a];
     u.cooldowns = u.cooldowns || {};
     const c = u.cooldowns.crime || 0, n = Date.now(), C = 10 * 60 * 1000;
-    if (n < c) return sock.sendMessage(chatId, { text: `⏳ Disfarce! Espere ${timeLeft(c)}.` }, { quoted: m });
+    if (n < c) return safeSendMessage(sock, chatId, { text: `⏳ Disfarce! Espere ${timeLeft(c)}.` }, { quoted: m });
     
     let sC = 0.4, gM = 1.0, bonusMsg = "";
     
@@ -1974,14 +2067,14 @@ async function handleCrime(m, a, chatId) {
         u.ouro = (u.ouro || 0) + tG;
         u.cooldowns.crime = n + C;
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `💰 Crime perfeito! Lucrou ${fmt(tG)} Ouro.${bonusMsg}` }, { quoted: m });
+        await safeSendMessage(sock, chatId, { text: `💰 Crime perfeito! Lucrou ${fmt(tG)} Ouro.${bonusMsg}` }, { quoted: m });
     } else {
         const f = 35 + Math.floor(Math.random() * 71); // Antes: 40-120
         const p = Math.min(u.ouro || 0, f);
         u.ouro = (u.ouro || 0) - p;
         u.cooldowns.crime = n + C;
         await saveDB(USUARIOS_DB, usuarios);
-        await sock.sendMessage(chatId, { text: `🚓 Pego! Multa de ${fmt(p)} Ouro.` }, { quoted: m });
+        await safeSendMessage(sock, chatId, { text: `🚓 Pego! Multa de ${fmt(p)} Ouro.` }, { quoted: m });
     }
 }
 
@@ -2229,15 +2322,15 @@ async function enviarMidiaComFallback(chatId, vP, gP, mId, caption, mentions = [
             } else {
                 options.image = mediaBuffer;
             }
-            await sock.sendMessage(chatId, options);
+            await safeSendMessage(sock, chatId, options);
         } else {
             console.warn(`!!! Mídia (mp4, gif) ${mId} não enc.: ${vP} ou ${gP}.`);
             options.text = `🎬 (Mídia ${mId} não enc.)\n\n${caption}`;
-            await sock.sendMessage(chatId, options);
+            await safeSendMessage(sock, chatId, options);
         }
     } catch (sE) {
         console.error(`!!! Erro enviar mídia ${mId}: ${sE.message}`);
-        await sock.sendMessage(chatId, { text: `🎬 (Erro Mídia)\n\n${caption}`, mentions: mentions });
+        await safeSendMessage(sock, chatId, { text: `🎬 (Erro Mídia)\n\n${caption}`, mentions: mentions });
     }
 }
 
@@ -2391,7 +2484,7 @@ async function skillTimerLoop(sockInstance) {
 
                     // 3) Mensagem de fim do efeito
                     try {
-                        await sockInstance.sendMessage(chatId, {
+                        await safeSendMessage(sockInstance, chatId, {
                             text: `⏰ *ZA WARUDO!* acabou — o tempo voltou ao normal.`
                         });
                     } catch (e) {
@@ -2421,12 +2514,12 @@ async function skillTimerLoop(sockInstance) {
                     
                     // --- DEFESAS PASSIVAS ---
                     if (timer.skillId === 'vazio_roxo' && target.cla_id === 'gojo') {
-                        try { sockInstance.sendMessage(timer.chatId, { text: `♾️ ${target.nome} (Gojo) é imune ao Vazio Roxo!` }); } catch {}
+                        try { safeSendMessage(sockInstance, timer.chatId, { text: `♾️ ${target.nome} (Gojo) é imune ao Vazio Roxo!` }); } catch {}
                         continue;
                     }
 
                     if (skill.anime === 'Jujutsu Kaisen' && (target.buffs?.mahoraga_adapt || 0) > now) {
-                        try { sockInstance.sendMessage(timer.chatId, { text: `☸️ ${target.nome} está adaptado! O ataque JJK foi anulado!` }); } catch {}
+                        try { safeSendMessage(sockInstance, timer.chatId, { text: `☸️ ${target.nome} está adaptado! O ataque JJK foi anulado!` }); } catch {}
                         continue;
                     }
 
@@ -2435,17 +2528,17 @@ async function skillTimerLoop(sockInstance) {
                         if (bVI !== -1 && bVI !== undefined) {
                             target.habilidades.splice(bVI, 1);
                             userDbChanged = true;
-                            try { sockInstance.sendMessage(timer.chatId, { text: `🛡️ Blut Vene! ${target.nome} anulou o ataque em área!` }); } catch {}
+                            try { safeSendMessage(sockInstance, timer.chatId, { text: `🛡️ Blut Vene! ${target.nome} anulou o ataque em área!` }); } catch {}
                             continue;
                         }
                         if ((target.mugen_charges || 0) > 0) {
                             target.mugen_charges -= 1;
                             userDbChanged = true;
-                            try { sockInstance.sendMessage(timer.chatId, { text: `♾️ Mugen! ${target.nome} anulou o ataque! (${target.mugen_charges} cargas restantes)` }); } catch {}
+                            try { safeSendMessage(sockInstance, timer.chatId, { text: `♾️ Mugen! ${target.nome} anulou o ataque! (${target.mugen_charges} cargas restantes)` }); } catch {}
                             continue;
                         }
                         if (target.cla_id === 'hyuga' && Math.random() < (clas.find(c => c.id === 'hyuga')?.buff?.chance || 0.15)) {
-                            try { sockInstance.sendMessage(timer.chatId, { text: `👁️ Byakugan! ${target.nome} desviou do ataque em área!` }); } catch {}
+                            try { safeSendMessage(sockInstance, timer.chatId, { text: `👁️ Byakugan! ${target.nome} desviou do ataque em área!` }); } catch {}
                             continue;
                         }
                         const iSI = target.habilidades?.indexOf('instinto_superior');
@@ -2454,7 +2547,7 @@ async function skillTimerLoop(sockInstance) {
                             target.cooldowns.instinto_superior = now + (4 * 60 * 60 * 1000);
                             userDbChanged = true;
                             try { 
-                                sockInstance.sendMessage(timer.chatId, { 
+                                safeSendMessage(sockInstance, timer.chatId, { 
                                     text: `🌌 Instinto Superior! ${target.nome} desviou e anulou o ataque em área! (CD 4h)`,
                                     mentions: [denormalizeJid(uId)] 
                                 }); 
@@ -2524,7 +2617,7 @@ async function skillTimerLoop(sockInstance) {
                     msg = msg.replace('{atacante}', aNum).replace('{ouro_roubado}', fmt(totalOuroRoubado));
                     let title = "💀 Tempo acabou! 💀";
                     if (['atomic', 'madoka', 'mugetsu', 'estrondo'].includes(timer.skillId)) title = "🌌 Realidade Alterada 🌌";
-                    await sockInstance.sendMessage(timer.chatId, { text: `${title}\n\n${msg}`, mentions: mencoes });
+                    await safeSendMessage(sockInstance, timer.chatId, { text: `${title}\n\n${msg}`, mentions: mencoes });
                 } catch (e) { console.warn(`Erro msg ${timer.skillId}:`, e.message); }
                 continue;
             }
@@ -2541,7 +2634,7 @@ async function skillTimerLoop(sockInstance) {
 
                 // --- DEFESAS PASSIVAS (Alvo Único) ---
                 if (skill.anime === 'Jujutsu Kaisen' && (target.buffs?.mahoraga_adapt || 0) > now) {
-                    try { sockInstance.sendMessage(timer.chatId, { text: `☸️ ${target.nome} está adaptado! O ataque JJK foi anulado!` }); } catch {}
+                    try { safeSendMessage(sockInstance, timer.chatId, { text: `☸️ ${target.nome} está adaptado! O ataque JJK foi anulado!` }); } catch {}
                     continue;
                 }
 
@@ -2553,7 +2646,7 @@ async function skillTimerLoop(sockInstance) {
                         userDbChanged = true;
                         try {
                             const aNum = getNum(timer.attackerId);
-                            await sockInstance.sendMessage(timer.chatId, {
+                            await safeSendMessage(sockInstance, timer.chatId, {
                                 text: `🛡️ Blut Vene! ${target.nome} anulou @${aNum}!`,
                                 mentions: [denormalizeJid(timer.attackerId), denormalizeJid(timer.targetId)],
                             });
@@ -2566,7 +2659,7 @@ async function skillTimerLoop(sockInstance) {
                         userDbChanged = true;
                         try {
                             const aNum = getNum(timer.attackerId);
-                            await sockInstance.sendMessage(timer.chatId, { 
+                            await safeSendMessage(sockInstance, timer.chatId, { 
                                 text: `♾️ Mugen! O ataque de @${aNum} contra ${target.nome} foi anulado! (${target.mugen_charges} cargas restantes)`,
                                 mentions: [denormalizeJid(timer.attackerId), denormalizeJid(timer.targetId)],
                             }); 
@@ -2575,7 +2668,7 @@ async function skillTimerLoop(sockInstance) {
                     }
                     // 3. Byakugan (Hyuga)
                     if (target.cla_id === 'hyuga' && Math.random() < (clas.find(c => c.id === 'hyuga')?.buff?.chance || 0.15)) {
-                        try { await sockInstance.sendMessage(timer.chatId, { text: `👁️ Byakugan! ${target.nome} anulou!` }); } catch (e) {}
+                        try { await safeSendMessage(sockInstance, timer.chatId, { text: `👁️ Byakugan! ${target.nome} anulou!` }); } catch (e) {}
                         continue;
                     }
                     // 4. Instinto Superior (Sayajin)
@@ -2589,7 +2682,7 @@ async function skillTimerLoop(sockInstance) {
                         try {
                             const aNum = getNum(timer.attackerId);
                             const tNum = getNum(timer.targetId);
-                            await sockInstance.sendMessage(timer.chatId, {
+                            await safeSendMessage(sockInstance, timer.chatId, {
                                 text: `🌌 Instinto Superior! @${tNum} desviou e anulou o ataque de @${aNum}! (CD 4h)`,
                                 mentions: [denormalizeJid(timer.attackerId), denormalizeJid(timer.targetId)],
                             });
@@ -2611,6 +2704,8 @@ async function skillTimerLoop(sockInstance) {
                 else if (timer.skillId === 'gate_of_babylon') oR = Math.floor(tO * (Math.random() * 0.35 + 0.05)); // 5% a 40%
                 else if (timer.skillId === 'gomu_gomu_rocket') oR = Math.floor(tO * 0.15);
                 else if (timer.skillId === 'mangekyou_inicial') oR = Math.floor(tO * 0.10);
+                else if (timer.skillId === 'bola_de_ki') oR = Math.floor(tO * 0.08);
+                else if (timer.skillId === 'punhos_divergentes') oR = Math.floor(tO * 0.10);
                 // (Adicione outras skills de alvo único aqui)
                 
                 target.ouro = tO - oR;
@@ -2622,7 +2717,7 @@ async function skillTimerLoop(sockInstance) {
                     const tNum = getNum(timer.targetId);
                     let msg = skill.msg_sucesso || `Efeito!`;
                     msg = msg.replace('{alvo}', tNum).replace('{atacante}', aNum).replace('{ouro_roubado}', fmt(oR));
-                    await sockInstance.sendMessage(timer.chatId, {
+                    await safeSendMessage(sockInstance, timer.chatId, {
                         text: `💀 Tempo acabou! 💀\n\n${msg}`,
                         mentions: [denormalizeJid(timer.attackerId), denormalizeJid(timer.targetId)],
                     });

@@ -52,6 +52,8 @@
     "descricao": "Rouba 10% do ouro do alvo. (Habilidade Clã Uchiha, Cooldown 30 min)",
     "uso": ".mangekyou_inicial @usuario",
     "gif_id": "mangekyou_inicial",
+    "duracao_seg": 12,
+    "msg_anular": ".desviar",
     "msg_sucesso": "👁️ @{atacante} usou o Mangekyou em @{alvo} e roubou {ouro_roubado} Ouro!",
     "is_clan_skill": true,
     "cooldown_sec": 1800

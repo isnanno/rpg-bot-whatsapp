@@ -3,6 +3,10 @@
     "id": "vazio_roxo",
     "expires": 1761868800000
   },
-  "userToggles": {},
-  "lastDiscountDate": "2025-10-30"
+  "userToggles": {
+    "104127791141069@lid": {
+      "rendaOff": false
+    }
+  },
+  "lastDiscountDate": "2025-11-01"
 }

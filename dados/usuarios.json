@@ -1,47 +1,242 @@
 {
-  "104127791141069@lid": {
-    "nome": "cokis",
-    "ouro": 22359,
+  "210316092821623@lid": {
+    "nome": "Deki",
+    "ouro": 50,
     "bank": 0,
-    "cla": "Clã Beyond",
-    "cla_id": "beyond",
-    "passivos": [
-      {
-        "id": "itoshirin_gol",
-        "nome": "Contrato (Itoshi Rin)"
-      }
-    ],
-    "habilidades": [
-      "bola_de_ki",
-      "olhos_shinigami"
-    ],
-    "cooldowns": {
-      "work": 1761824367583,
-      "diario": "2025-10-30",
-      "mine": 1761824249240,
-      "fish": 1761824315601,
-      "forjar": 1761823588576,
-      "fazerbolo": 1761823591616,
-      "explore": 1761823713669,
-      "crime": 1761823835341,
-      "hunt": 1761823789023,
-      "nick": 1761909669626,
-      "buy_expensive_skill": 1761914890909,
-      "olhos_shinigami": 1761829756307
-    },
-    "job": null,
-    "lastKnownChatId": "120363424011427719@g.us"
-  },
-  "63256798474337@lid": {
-    "nome": "atena",
-    "ouro": 100,
-    "bank": 0,
-    "cla": "Raça Quincy",
-    "cla_id": "quincy",
+    "cla": "Clã Sarutobi",
+    "cla_id": "sarutobi",
     "passivos": [],
     "habilidades": [],
     "cooldowns": {},
     "job": null,
-    "lastKnownChatId": "120363424011427719@g.us"
+    "lastKnownChatId": "120363405774333550@g.us",
+    "notificationChatId": "120363421554364023@g.us"
+  },
+  "39883468976274@lid": {
+    "nome": "Karma",
+    "ouro": 31915,
+    "bank": 0,
+    "cla": "Humano Comum",
+    "cla_id": "comum",
+    "passivos": [],
+    "habilidades": [],
+    "cooldowns": {
+      "deposit": 1761927436789
+    },
+    "job": null,
+    "lastKnownChatId": "120363420019772615@g.us",
+    "notificationChatId": "120363421554364023@g.us"
+  },
+  "104127791141069@lid": {
+    "nome": "Nanno",
+    "ouro": 8920,
+    "bank": 359858,
+    "cla": "Clã Beyond",
+    "cla_id": "beyond",
+    "passivos": [
+      {
+        "id": "sukuna_dedo",
+        "nome": "Fragmento (Ryomen Sukuna)"
+      },
+      {
+        "id": "gojo_exorcismo",
+        "nome": "Missão Especial (Gojo Satoru)"
+      },
+      {
+        "id": "zenitsu_soneca",
+        "nome": "Proteção Inconsciente (Zenitsu)"
+      },
+      {
+        "id": "meimei_corvos",
+        "nome": "Contrato (Mei Mei)"
+      }
+    ],
+    "habilidades": [
+      "olhos_shinigami"
+    ],
+    "cooldowns": {
+      "deposit": 1762084093826,
+      "pix": 1762082860798,
+      "olhos_shinigami": 1762081214625,
+      "diario": "2025-11-01"
+    },
+    "job": null,
+    "lastKnownChatId": "120363405774333550@g.us",
+    "buffs": {
+      "mahoraga_adapt": 1761970947767
+    }
+  },
+  "20938133364960@lid": {
+    "nome": "silvatws",
+    "ouro": 21658,
+    "bank": 125757,
+    "cla": "Clã Tsugikuni",
+    "cla_id": "tsugikuni",
+    "passivos": [
+      {
+        "id": "mr_satan_fama",
+        "nome": "Fama (Mr. Satan)"
+      },
+      {
+        "id": "itoshirin_gol",
+        "nome": "Contrato (Itoshi Rin)"
+      },
+      {
+        "id": "bachira_drible",
+        "nome": "Showtime (Meguru Bachira)"
+      },
+      {
+        "id": "inosuke_besta",
+        "nome": "Caça Selvagem (Inosuke)"
+      },
+      {
+        "id": "tanjiro_missao",
+        "nome": "Missão (Tanjiro Kamado)"
+      },
+      {
+        "id": "kakashi_missao",
+        "nome": "Missão Rank-A (Kakashi)"
+      },
+      {
+        "id": "vegeta_treino",
+        "nome": "Patrocínio (Vegeta)"
+      },
+      {
+        "id": "meimei_corvos",
+        "nome": "Contrato (Mei Mei)"
+      },
+      {
+        "id": "hange_pesquisa",
+        "nome": "Pesquisa (Hange Zoë)"
+      },
+      {
+        "id": "levi_limpeza",
+        "nome": "Faxina (Levi Ackerman)"
+      },
+      {
+        "id": "zoro_caminho",
+        "nome": "Caçada (Roronoa Zoro)"
+      },
+      {
+        "id": "nami_mapa",
+        "nome": "Navegação (Nami)"
+      },
+      {
+        "id": "inumaki_ordem",
+        "nome": "Feitiçaria Inata (Toge Inumaki)"
+      },
+      {
+        "id": "jiraiya_pesquisa",
+        "nome": "Pesquisa (Jiraiya)"
+      },
+      {
+        "id": "zenitsu_soneca",
+        "nome": "Proteção Inconsciente (Zenitsu)"
+      },
+      {
+        "id": "nagi_trap",
+        "nome": "Domínio (Seishiro Nagi)"
+      },
+      {
+        "id": "isagi_adapt",
+        "nome": "Visão (Yoichi Isagi)"
+      },
+      {
+        "id": "gojo_exorcismo",
+        "nome": "Missão Especial (Gojo Satoru)"
+      },
+      {
+        "id": "sukuna_dedo",
+        "nome": "Fragmento (Ryomen Sukuna)"
+      },
+      {
+        "id": "sanji_cozinha",
+        "nome": "Banquete (Sanji)"
+      },
+      {
+        "id": "jotaro_pesquisa",
+        "nome": "Expedição Marinha (Jotaro)"
+      },
+      {
+        "id": "luffy_tesouro",
+        "nome": "Sorte do Rei (Monkey D. Luffy)"
+      },
+      {
+        "id": "goku_genkidama",
+        "nome": "Doações (Goku)"
+      }
+    ],
+    "habilidades": [],
+    "cooldowns": {
+      "work": 1762052890417,
+      "explore": 1762052958560,
+      "mine": 1762052774221,
+      "hunt": 1762053016879,
+      "fish": 1762052840043,
+      "diario": "2025-11-01",
+      "forjar": 1762052841621,
+      "crime": 1762053083127,
+      "fazerbolo": 1762052848254,
+      "deposit": 1762056117314,
+      "olhos_shinigami": 1761971482422,
+      "pix": 1762041484124
+    },
+    "job": null,
+    "lastKnownChatId": "120363405774333550@g.us"
+  },
+  "63256798474337@lid": {
+    "nome": "ateninha",
+    "ouro": 0,
+    "bank": 126879,
+    "cla": "Clã Beyond",
+    "cla_id": "beyond",
+    "passivos": [],
+    "habilidades": [
+      "olhos_shinigami"
+    ],
+    "cooldowns": {
+      "deposit": 1762016944606,
+      "work": 1762012137982,
+      "forjar": 1762012082960,
+      "mine": 1762012020643,
+      "hunt": 1761951608534,
+      "fish": 1762012087224,
+      "fazerbolo": 1762012090038,
+      "buy_expensive_skill": 1762011031978,
+      "pix": 1761936333976,
+      "explore": 1762012205304,
+      "crime": 1761940390878,
+      "olhos_shinigami": 1761940890877,
+      "diario": "2025-10-31"
+    },
+    "job": null,
+    "lastKnownChatId": "120363405774333550@g.us"
+  },
+  "218666012520515@lid": {
+    "nome": "hg",
+    "ouro": 1300,
+    "bank": 0,
+    "cla": "Humano Comum",
+    "cla_id": "comum",
+    "passivos": [],
+    "habilidades": [
+      "olhos_shinigami"
+    ],
+    "cooldowns": {
+      "pix": 1762018877307,
+      "work": 1762081361536,
+      "mine": 1762081247584,
+      "fish": 1762081309615,
+      "explore": 1762081443832,
+      "fazerbolo": 1762081331777,
+      "forjar": 1762081334822,
+      "diario": "2025-10-31",
+      "crime": 1762081577012,
+      "hunt": 1762019549304,
+      "olhos_shinigami": 1762081960377,
+      "mangekyou_inicial": 1762023270082
+    },
+    "job": null,
+    "lastKnownChatId": "120363405774333550@g.us"
   }
 }
