@@ -130,6 +130,16 @@
     "chance": 1
   },
   {
+    "id": "meliodas",
+    "nome": "Clã Meliodas",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "reacao_total",
+      "description": "Começa com 'Reação Total' (Reflete automaticamente qualquer ataque recebido enquanto estiver carregada. Cooldown 4h)."
+    },
+    "chance": 2
+  },
+  {
     "id": "tsugikuni",
     "nome": "Clã Tsugikuni",
     "buff": {
@@ -138,5 +148,115 @@
       "description": "O comando .forjar SEMPRE acerta, ganha 300% (x3) no .forjar e +50% em rendas de Demon Slayer."
     },
     "chance": 5
+  },
+  {
+    "id": "uchiha_avancado",
+    "nome": "Clã Uchiha Avançado",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "amaterasu",
+      "description": "Começa com 'Amaterasu' (Rouba 45% do ouro, Ganhos x1.2, 20s anulação)."
+    },
+    "chance": 4
+  },
+  {
+    "id": "sakazuki",
+    "nome": "Clã Sakazuki",
+    "buff": {
+      "type": "activity_bonus",
+      "multiplier": 1.15,
+      "description": "Ganha 15% a mais de Ouro em TODAS as atividades manuais (.trabalhar, .minerar, .pescar, .crime, .explorar, .caçar)."
+    },
+    "chance": 6
+  },
+  {
+    "id": "kisuke",
+    "nome": "Clã Urahara",
+    "buff": {
+      "type": "cooldown_reduction",
+      "multiplier": 0.70,
+      "description": "Cooldowns dos itens de renda passiva (.loja) são 30% mais rápidos. Desconto de 30% em habilidades de Bleach."
+    },
+    "chance": 9
+  },
+  {
+    "id": "goku",
+    "nome": "Clã Saiyajin Avançado",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "kamehameha",
+      "description": "Começa com 'Kamehameha' (Rouba 20% do ouro, 18s anulação) e +20% em atividades."
+    },
+    "chance": 4
+  },
+  {
+    "id": "yonko",
+    "nome": "Yonko (Pirata)",
+    "buff": {
+      "type": "gold_start",
+      "amount": 500,
+      "description": "Começa com 500 Ouro extra e 30% de desconto em habilidades de One Piece."
+    },
+    "chance": 6
+  },
+  {
+    "id": "espadachim",
+    "nome": "Espadachim",
+    "buff": {
+      "type": "activity_bonus",
+      "multiplier": 1.08,
+      "description": "Ganha 8% a mais de Ouro em atividades manuais e tem 25% de chance de ganhar 2x em .caçar."
+    },
+    "chance": 11
+  },
+  {
+    "id": "shinigami_captain",
+    "nome": "Capitão Shinigami",
+    "buff": {
+      "type": "skill_start",
+      "skillId": "getsuga_tenshou",
+      "description": "Começa com 'Getsuga Tenshou' (Rouba 22% do ouro, 16s anulação) e 40% de desconto em habilidades de Bleach."
+    },
+    "chance": 5
+  },
+  {
+    "id": "zeke",
+    "nome": "Clã Zeke (Titã Bestial)",
+    "buff": {
+      "type": "activity_bonus",
+      "multiplier": 1.25,
+      "description": "Ganha 25% a mais de Ouro em .caçar e .explorar. Cooldowns 20% mais rápidos nessas atividades."
+    },
+    "chance": 4
+  },
+  {
+    "id": "speedwagon",
+    "nome": "Fundação Speedwagon",
+    "buff": {
+      "type": "passive_income_boost",
+      "multiplier": 1.20,
+      "description": "Sua renda passiva (.loja) gera 20% a mais de Ouro. Desconto de 35% em habilidades de JoJo."
+    },
+    "chance": 6
+  },
+  {
+    "id": "shishio",
+    "nome": "Clã Shishio",
+    "buff": {
+      "type": "activity_bonus",
+      "multiplier": 1.18,
+      "description": "Ganha 18% a mais de Ouro em .trabalhar e .forjar. Sucesso garantido em .forjar (50% do tempo)."
+    },
+    "chance": 7
+  },
+  {
+    "id": "hunter",
+    "nome": "Hunter (Hunter x Hunter)",
+    "buff": {
+      "type": "gold_start",
+      "amount": 300,
+      "description": "Começa com 300 Ouro extra. Ganha 15% a mais em .caçar, .explorar e .pescar."
+    },
+    "chance": 8
   }
 ]
